@@ -28,9 +28,16 @@ namespace Anasoko_Hiroba
         private readonly Dictionary<string, DateTime> lastProcessedTime = new Dictionary<string, DateTime>();
         private readonly object lastProcessedLock = new object();
 
-        private static readonly HttpClient httpClient = new HttpClient();
+        // 通信不能時に既定の100秒間も待ち続けないよう、タイムアウトを短めに設定する
+        private static readonly HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         private static readonly string[] CourseNames = { "簡単", "普通", "難しい", "おに", "裏" };
         private static readonly string[] ScoreFileNames = { "easy.bin", "normal.bin", "hard.bin", "oni.bin", "ura.bin" };
+
+        // UIスレッド以外からPC名を安全に参照するためのコピー（textBoxPcName と常に同期させる）
+        private volatile string currentPcName = "";
+
+        // 一括登録の実行中は、モニターによる同じファイルの二重処理を防ぐ
+        private volatile bool isBulkRegistering;
 
         private IndicatorForm indicatorForm;
         private readonly System.Windows.Forms.Timer indicatorTimer = new System.Windows.Forms.Timer { Interval = 1000 };
@@ -76,6 +83,7 @@ namespace Anasoko_Hiroba
             // PC名を復元する（未設定ならこのPCのコンピューター名を初期値にする）
             string savedPcName = Properties.Settings.Default.PcName;
             textBoxPcName.Text = string.IsNullOrEmpty(savedPcName) ? Environment.MachineName : savedPcName;
+            currentPcName = textBoxPcName.Text;
 
             // インジケーター表示設定を復元する
             checkBoxIndicator.Checked = Properties.Settings.Default.ShowIndicator;
@@ -85,6 +93,13 @@ namespace Anasoko_Hiroba
             checkBoxStartup.Checked = IsStartupEnabled();
 
             this.Load += Form1_Load;
+            this.FormClosing += Form1_FormClosing;
+        }
+
+        // 設定の保存はフォームを閉じる時にまとめて行う（PC名入力の1文字ごとにファイル書き込みしない）
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            Properties.Settings.Default.Save();
         }
 
         // 「Windows起動時に自動起動」が変更されたらレジストリに反映する
@@ -124,11 +139,11 @@ namespace Anasoko_Hiroba
             }
         }
 
-        // 「PC名」欄が変更されたら保存する
+        // 「PC名」欄が変更されたら記憶する（ファイルへの保存はフォームを閉じる時にまとめて行う）
         private void textBoxPcName_TextChanged(object sender, EventArgs e)
         {
+            currentPcName = textBoxPcName.Text;
             Properties.Settings.Default.PcName = textBoxPcName.Text;
-            Properties.Settings.Default.Save();
         }
 
         // インジケーター表示のON/OFFが変更されたら保存し、モニター中なら即座に反映する
@@ -183,14 +198,15 @@ namespace Anasoko_Hiroba
         }
 
         // 保存済みの手動指定位置があればそれを、なければウィンドウ右下隅を使う
+        // ※ 位置の有無は専用フラグで判定する（負の座標はプライマリより左/上のモニターで正当な値のため）
         private void ApplyIndicatorPosition(Rectangle windowRect)
         {
-            int savedX = Properties.Settings.Default.IndicatorPosX;
-            int savedY = Properties.Settings.Default.IndicatorPosY;
-            if (savedX >= 0 && savedY >= 0)
+            if (Properties.Settings.Default.IndicatorPosSet)
             {
                 indicatorForm.EnsureSquareSize();
-                indicatorForm.Location = new Point(savedX, savedY);
+                indicatorForm.Location = new Point(
+                    Properties.Settings.Default.IndicatorPosX,
+                    Properties.Settings.Default.IndicatorPosY);
             }
             else
             {
@@ -211,10 +227,19 @@ namespace Anasoko_Hiroba
 
         private Rectangle? GetAnasokoWindowRect()
         {
-            var proc = Process.GetProcessesByName("Anasoko").FirstOrDefault();
-            if (proc == null || proc.MainWindowHandle == IntPtr.Zero) return null;
-            if (!GetWindowRect(proc.MainWindowHandle, out RECT r)) return null;
-            return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+            // 1秒ごとに呼ばれるため、Processオブジェクトは必ず破棄してハンドルを溜めない
+            var procs = Process.GetProcessesByName("Anasoko");
+            try
+            {
+                var proc = procs.FirstOrDefault();
+                if (proc == null || proc.MainWindowHandle == IntPtr.Zero) return null;
+                if (!GetWindowRect(proc.MainWindowHandle, out RECT r)) return null;
+                return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+            }
+            finally
+            {
+                foreach (var p in procs) p.Dispose();
+            }
         }
 
         // 「インジケーター位置を指定」ボタン：クリックで位置指定モードの開始/確定を切り替える
@@ -243,6 +268,7 @@ namespace Anasoko_Hiroba
                 indicatorForm.DisablePositioning();
                 Properties.Settings.Default.IndicatorPosX = indicatorForm.Location.X;
                 Properties.Settings.Default.IndicatorPosY = indicatorForm.Location.Y;
+                Properties.Settings.Default.IndicatorPosSet = true;
                 Properties.Settings.Default.Save();
 
                 isPositioningIndicator = false;
@@ -440,6 +466,7 @@ namespace Anasoko_Hiroba
             if (confirm != DialogResult.Yes) return;
 
             buttonBulkRegister.Enabled = false;
+            isBulkRegistering = true; // モニターとの二重処理を防ぐ
             LogMessage("スコアの一括登録を開始します: " + scoreFolder);
 
             string pcName = string.IsNullOrEmpty(textBoxPcName.Text) ? Environment.MachineName : textBoxPcName.Text;
@@ -471,6 +498,7 @@ namespace Anasoko_Hiroba
             }
             finally
             {
+                isBulkRegistering = false;
                 buttonBulkRegister.Enabled = true;
             }
         }
@@ -651,6 +679,9 @@ namespace Anasoko_Hiroba
         // ファイルの更新・作成を検知したときの処理
         private void OnFileUpdated(object sender, FileSystemEventArgs e)
         {
+            // 一括登録の実行中は、同じファイルを二重処理しないよう検知をスキップする
+            if (isBulkRegistering) return;
+
             // フォルダの作成・変更（曲GUIDフォルダ自体など）や、対象外のファイルは無視する
             if (!IsScoreFile(e.FullPath))
             {
@@ -666,6 +697,16 @@ namespace Anasoko_Hiroba
                     return;
                 }
                 lastProcessedTime[e.FullPath] = DateTime.Now;
+
+                // 記録が溜まりすぎたら古いものを掃除する（長時間の起動でメモリが増え続けないように）
+                if (lastProcessedTime.Count > 200)
+                {
+                    var cutoff = DateTime.Now.AddMinutes(-5);
+                    foreach (var key in lastProcessedTime.Where(kv => kv.Value < cutoff).Select(kv => kv.Key).ToList())
+                    {
+                        lastProcessedTime.Remove(key);
+                    }
+                }
             }
 
             // Anasoko側の書き込みが完了する（ファイルが閉じられる）まで待つ
@@ -675,12 +716,11 @@ namespace Anasoko_Hiroba
                 return;
             }
 
-            // 別スレッドから画面（UI）を操作するための安全な呼び出し
-            this.Invoke((MethodInvoker)delegate
-            {
-                LogMessage("スコアデータの更新を検知しました: " + e.Name);
-                ProcessScoreData(e.FullPath);
-            });
+            // 通信を含む登録処理もウォッチャーのスレッドのまま実行し、UIを固まらせない
+            // （LogMessage はスレッドセーフにしてあり、UIへは内部で安全に反映される）
+            LogMessage("スコアデータの更新を検知しました: " + e.Name);
+            string pcName = string.IsNullOrEmpty(currentPcName) ? Environment.MachineName : currentPcName;
+            ProcessScoreFile(e.FullPath, pcName, silent: false);
         }
 
         // モニター対象として扱うべきスコアファイルかどうかを判定する（フォルダや無関係なファイルを除外）
@@ -715,14 +755,6 @@ namespace Anasoko_Hiroba
                 }
             }
             return false;
-        }
-
-        // 検知したファイルを読み込み、データベースへ登録する処理
-        // 検知したファイルを読み込み、データベースへ登録する処理
-        private void ProcessScoreData(string fullPath)
-        {
-            string pcName = string.IsNullOrEmpty(textBoxPcName.Text) ? Environment.MachineName : textBoxPcName.Text;
-            ProcessScoreFile(fullPath, pcName, silent: false);
         }
 
         // 1件の .bin ファイルを読み込み、データベースへ登録する処理
@@ -762,6 +794,12 @@ namespace Anasoko_Hiroba
                 int miss = record.Miss;
                 int renda = record.Renda;
                 int gauge = record.Gauge;
+
+                // スコア0（未プレイ・空ファイル）を自己ベストとして登録しない
+                if (score <= 0)
+                {
+                    return false;
+                }
 
                 // 4. song_catalog（ローカル）から曲名・ジャンルを解決する
                 string songName = null;
@@ -961,9 +999,24 @@ namespace Anasoko_Hiroba
             }
         }
 
-        // ListBoxにログを表示する処理
+        // ListBoxにログを表示する処理（どのスレッドから呼んでも安全）
         private void LogMessage(string message)
         {
+            if (IsDisposed || !IsHandleCreated) return;
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke((MethodInvoker)(() => LogMessage(message)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // フォームを閉じる直前のタイミングでは無視する
+                }
+                return;
+            }
+
             string time = DateTime.Now.ToString("HH:mm:ss");
             listBoxLog.Items.Add($"[{time}] {message}");
             // 自動で一番下までスクロールさせる

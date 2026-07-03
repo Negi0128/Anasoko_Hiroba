@@ -101,5 +101,20 @@ namespace Anasoko_Hiroba.Properties
                 this["IndicatorPosY"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool IndicatorPosSet
+        {
+            get
+            {
+                return ((bool)(this["IndicatorPosSet"]));
+            }
+            set
+            {
+                this["IndicatorPosSet"] = value;
+            }
+        }
     }
 }
