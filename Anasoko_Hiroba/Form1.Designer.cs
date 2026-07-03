@@ -40,6 +40,7 @@
             this.buttonBulkRegister = new System.Windows.Forms.Button();
             this.checkBoxIndicator = new System.Windows.Forms.CheckBox();
             this.checkBoxStartup = new System.Windows.Forms.CheckBox();
+            this.buttonSetIndicatorPosition = new System.Windows.Forms.Button();
             this.listBoxLog = new System.Windows.Forms.ListBox();
             this.SuspendLayout();
             //
@@ -162,6 +163,16 @@
             this.checkBoxStartup.UseVisualStyleBackColor = true;
             this.checkBoxStartup.CheckedChanged += new System.EventHandler(this.checkBoxStartup_CheckedChanged);
             //
+            // buttonSetIndicatorPosition
+            //
+            this.buttonSetIndicatorPosition.Location = new System.Drawing.Point(650, 155);
+            this.buttonSetIndicatorPosition.Name = "buttonSetIndicatorPosition";
+            this.buttonSetIndicatorPosition.Size = new System.Drawing.Size(138, 30);
+            this.buttonSetIndicatorPosition.TabIndex = 13;
+            this.buttonSetIndicatorPosition.Text = "位置を指定";
+            this.buttonSetIndicatorPosition.UseVisualStyleBackColor = true;
+            this.buttonSetIndicatorPosition.Click += new System.EventHandler(this.buttonSetIndicatorPosition_Click);
+            //
             // listBoxLog
             //
             this.listBoxLog.FormattingEnabled = true;
@@ -176,6 +187,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 18F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 510);
+            this.Controls.Add(this.buttonSetIndicatorPosition);
             this.Controls.Add(this.checkBoxStartup);
             this.Controls.Add(this.checkBoxIndicator);
             this.Controls.Add(this.buttonBulkRegister);
@@ -210,6 +222,7 @@
         private System.Windows.Forms.Button buttonBulkRegister;
         private System.Windows.Forms.CheckBox checkBoxIndicator;
         private System.Windows.Forms.CheckBox checkBoxStartup;
+        private System.Windows.Forms.Button buttonSetIndicatorPosition;
         private System.Windows.Forms.ListBox listBoxLog;
     }
 }

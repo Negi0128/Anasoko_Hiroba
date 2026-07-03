@@ -34,6 +34,7 @@ namespace Anasoko_Hiroba
 
         private IndicatorForm indicatorForm;
         private readonly System.Windows.Forms.Timer indicatorTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+        private bool isPositioningIndicator;
 
         private const string StartupRegistryKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string StartupValueName = "AnasokoHiroba";
@@ -149,30 +150,62 @@ namespace Anasoko_Hiroba
             {
                 indicatorForm = new IndicatorForm();
             }
-            indicatorForm.Show();
-
-            var rect = GetAnasokoWindowRect();
-            if (rect.HasValue) indicatorForm.PositionAt(rect.Value);
-
             indicatorTimer.Start();
+            IndicatorTimer_Tick(null, EventArgs.Empty); // 即座に一度状態を反映する
         }
 
         private void HideIndicator()
         {
             indicatorTimer.Stop();
-            if (indicatorForm != null && !indicatorForm.IsDisposed)
+            if (indicatorForm != null && !indicatorForm.IsDisposed && !indicatorForm.PositioningMode)
             {
                 indicatorForm.Hide();
             }
         }
 
-        // Anasoko本体のウィンドウを見つけて、その右下隅にインジケーターを追従させる
+        // Anasokoがフルスクリーン表示のときだけインジケーターを表示し、位置を追従させる
         private void IndicatorTimer_Tick(object sender, EventArgs e)
         {
-            if (indicatorForm == null || indicatorForm.IsDisposed || !indicatorForm.Visible) return;
+            if (indicatorForm == null || indicatorForm.IsDisposed || indicatorForm.PositioningMode) return;
 
             var rect = GetAnasokoWindowRect();
-            if (rect.HasValue) indicatorForm.PositionAt(rect.Value);
+            bool shouldShow = checkBoxIndicator.Checked && rect.HasValue && IsFullscreenRect(rect.Value);
+
+            if (shouldShow)
+            {
+                ApplyIndicatorPosition(rect.Value);
+                if (!indicatorForm.Visible) indicatorForm.Show();
+            }
+            else if (indicatorForm.Visible)
+            {
+                indicatorForm.Hide();
+            }
+        }
+
+        // 保存済みの手動指定位置があればそれを、なければウィンドウ右下隅を使う
+        private void ApplyIndicatorPosition(Rectangle windowRect)
+        {
+            int savedX = Properties.Settings.Default.IndicatorPosX;
+            int savedY = Properties.Settings.Default.IndicatorPosY;
+            if (savedX >= 0 && savedY >= 0)
+            {
+                indicatorForm.Location = new Point(savedX, savedY);
+            }
+            else
+            {
+                indicatorForm.PositionAt(windowRect);
+            }
+        }
+
+        // ウィンドウ範囲が、それが乗っているモニターの表示領域とほぼ一致するか（＝フルスクリーンか）を判定する
+        private bool IsFullscreenRect(Rectangle rect)
+        {
+            var bounds = Screen.FromRectangle(rect).Bounds;
+            const int tolerance = 4;
+            return Math.Abs(rect.Left - bounds.Left) <= tolerance
+                && Math.Abs(rect.Top - bounds.Top) <= tolerance
+                && Math.Abs(rect.Right - bounds.Right) <= tolerance
+                && Math.Abs(rect.Bottom - bounds.Bottom) <= tolerance;
         }
 
         private Rectangle? GetAnasokoWindowRect()
@@ -181,6 +214,49 @@ namespace Anasoko_Hiroba
             if (proc == null || proc.MainWindowHandle == IntPtr.Zero) return null;
             if (!GetWindowRect(proc.MainWindowHandle, out RECT r)) return null;
             return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+        }
+
+        // 「インジケーター位置を指定」ボタン：クリックで位置指定モードの開始/確定を切り替える
+        private void buttonSetIndicatorPosition_Click(object sender, EventArgs e)
+        {
+            if (!isPositioningIndicator)
+            {
+                if (indicatorForm == null || indicatorForm.IsDisposed)
+                {
+                    indicatorForm = new IndicatorForm();
+                }
+                indicatorTimer.Stop();
+
+                var rect = GetAnasokoWindowRect();
+                ApplyIndicatorPosition(rect ?? Screen.PrimaryScreen.Bounds);
+                indicatorForm.Show();
+                indicatorForm.EnablePositioning();
+
+                isPositioningIndicator = true;
+                buttonSetIndicatorPosition.Text = "位置を確定";
+                LogMessage("インジケーターをドラッグで好きな位置に移動し、「位置を確定」を押してください。");
+            }
+            else
+            {
+                indicatorForm.DisablePositioning();
+                Properties.Settings.Default.IndicatorPosX = indicatorForm.Location.X;
+                Properties.Settings.Default.IndicatorPosY = indicatorForm.Location.Y;
+                Properties.Settings.Default.Save();
+
+                isPositioningIndicator = false;
+                buttonSetIndicatorPosition.Text = "位置を指定";
+                LogMessage("インジケーターの表示位置を保存しました。");
+
+                if (watcher != null)
+                {
+                    indicatorTimer.Start();
+                    IndicatorTimer_Tick(null, EventArgs.Empty);
+                }
+                else
+                {
+                    indicatorForm.Hide();
+                }
+            }
         }
 
         // フォーム表示時、既に Anasoko.exe のパスがあれば曲名データベースの更新とモニター開始を自動で行う

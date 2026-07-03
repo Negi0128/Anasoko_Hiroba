@@ -71,5 +71,35 @@ namespace Anasoko_Hiroba.Properties
                 this["ShowIndicator"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("-1")]
+        public int IndicatorPosX
+        {
+            get
+            {
+                return ((int)(this["IndicatorPosX"]));
+            }
+            set
+            {
+                this["IndicatorPosX"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("-1")]
+        public int IndicatorPosY
+        {
+            get
+            {
+                return ((int)(this["IndicatorPosY"]));
+            }
+            set
+            {
+                this["IndicatorPosY"] = value;
+            }
+        }
     }
 }
