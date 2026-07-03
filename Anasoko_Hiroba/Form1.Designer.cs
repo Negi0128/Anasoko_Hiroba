@@ -39,6 +39,7 @@
             this.labelStatus = new System.Windows.Forms.Label();
             this.buttonBulkRegister = new System.Windows.Forms.Button();
             this.checkBoxIndicator = new System.Windows.Forms.CheckBox();
+            this.checkBoxStartup = new System.Windows.Forms.CheckBox();
             this.listBoxLog = new System.Windows.Forms.ListBox();
             this.SuspendLayout();
             //
@@ -150,6 +151,17 @@
             this.checkBoxIndicator.UseVisualStyleBackColor = true;
             this.checkBoxIndicator.CheckedChanged += new System.EventHandler(this.checkBoxIndicator_CheckedChanged);
             //
+            // checkBoxStartup
+            //
+            this.checkBoxStartup.AutoSize = true;
+            this.checkBoxStartup.Location = new System.Drawing.Point(440, 159);
+            this.checkBoxStartup.Name = "checkBoxStartup";
+            this.checkBoxStartup.Size = new System.Drawing.Size(200, 22);
+            this.checkBoxStartup.TabIndex = 12;
+            this.checkBoxStartup.Text = "Windows起動時に自動起動";
+            this.checkBoxStartup.UseVisualStyleBackColor = true;
+            this.checkBoxStartup.CheckedChanged += new System.EventHandler(this.checkBoxStartup_CheckedChanged);
+            //
             // listBoxLog
             //
             this.listBoxLog.FormattingEnabled = true;
@@ -164,6 +176,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 18F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 510);
+            this.Controls.Add(this.checkBoxStartup);
             this.Controls.Add(this.checkBoxIndicator);
             this.Controls.Add(this.buttonBulkRegister);
             this.Controls.Add(this.listBoxLog);
@@ -177,7 +190,7 @@
             this.Controls.Add(this.textBoxPath);
             this.Controls.Add(this.label1);
             this.Name = "Form1";
-            this.Text = "Form1";
+            this.Text = "Anasoko Score Monitor";
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -196,6 +209,7 @@
         private System.Windows.Forms.Label labelStatus;
         private System.Windows.Forms.Button buttonBulkRegister;
         private System.Windows.Forms.CheckBox checkBoxIndicator;
+        private System.Windows.Forms.CheckBox checkBoxStartup;
         private System.Windows.Forms.ListBox listBoxLog;
     }
 }

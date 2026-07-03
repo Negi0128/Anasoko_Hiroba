@@ -21,8 +21,15 @@ namespace Anasoko_Hiroba
             BackColor = Color.Magenta;
             TransparencyKey = Color.Magenta;
 
+            // Anasokoウィンドウが見つかるまでの仮位置（画面右下隅）
             var area = Screen.PrimaryScreen.WorkingArea;
             Location = new Point(area.Right - 60, area.Bottom - 60);
+        }
+
+        // 指定したウィンドウ範囲の右下隅付近に移動する
+        public void PositionAt(Rectangle windowRect)
+        {
+            Location = new Point(windowRect.Right - 60, windowRect.Bottom - 60);
         }
 
         // マウスクリックを下のウィンドウへ透過させる（操作の邪魔をしない）

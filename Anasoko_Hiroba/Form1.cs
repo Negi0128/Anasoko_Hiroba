@@ -2,15 +2,19 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.SQLite;
+using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using AnasCore; // AnasCore.dll の読み込み
+using Microsoft.Win32;
 
 namespace Anasoko_Hiroba
 {
@@ -29,10 +33,33 @@ namespace Anasoko_Hiroba
         private static readonly string[] ScoreFileNames = { "easy.bin", "normal.bin", "hard.bin", "oni.bin", "ura.bin" };
 
         private IndicatorForm indicatorForm;
+        private readonly System.Windows.Forms.Timer indicatorTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+
+        private const string StartupRegistryKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        private const string StartupValueName = "AnasokoHiroba";
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left, Top, Right, Bottom;
+        }
 
         public Form1()
         {
             InitializeComponent();
+
+            try
+            {
+                string iconPath = Path.Combine(Application.StartupPath, "app.ico");
+                if (File.Exists(iconPath)) this.Icon = new Icon(iconPath);
+            }
+            catch
+            {
+                // アイコンが読み込めなくてもアプリの動作には影響させない
+            }
             // 起動直後はモニター終了ボタンを無効化しておく
             buttonStop.Enabled = false;
 
@@ -51,8 +78,49 @@ namespace Anasoko_Hiroba
 
             // インジケーター表示設定を復元する
             checkBoxIndicator.Checked = Properties.Settings.Default.ShowIndicator;
+            indicatorTimer.Tick += IndicatorTimer_Tick;
+
+            // Windows起動時の自動起動設定を、実際のレジストリの状態から復元する（初期値はOFF）
+            checkBoxStartup.Checked = IsStartupEnabled();
 
             this.Load += Form1_Load;
+        }
+
+        // 「Windows起動時に自動起動」が変更されたらレジストリに反映する
+        private void checkBoxStartup_CheckedChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                SetStartupEnabled(checkBoxStartup.Checked);
+            }
+            catch (Exception ex)
+            {
+                LogMessage("スタートアップ設定の変更に失敗しました: " + ex.Message);
+            }
+        }
+
+        private bool IsStartupEnabled()
+        {
+            using (var key = Registry.CurrentUser.OpenSubKey(StartupRegistryKeyPath, writable: false))
+            {
+                return key?.GetValue(StartupValueName) != null;
+            }
+        }
+
+        private void SetStartupEnabled(bool enabled)
+        {
+            using (var key = Registry.CurrentUser.OpenSubKey(StartupRegistryKeyPath, writable: true))
+            {
+                if (key == null) return;
+                if (enabled)
+                {
+                    key.SetValue(StartupValueName, "\"" + Application.ExecutablePath + "\"");
+                }
+                else if (key.GetValue(StartupValueName) != null)
+                {
+                    key.DeleteValue(StartupValueName);
+                }
+            }
         }
 
         // 「PC名」欄が変更されたら保存する
@@ -82,14 +150,37 @@ namespace Anasoko_Hiroba
                 indicatorForm = new IndicatorForm();
             }
             indicatorForm.Show();
+
+            var rect = GetAnasokoWindowRect();
+            if (rect.HasValue) indicatorForm.PositionAt(rect.Value);
+
+            indicatorTimer.Start();
         }
 
         private void HideIndicator()
         {
+            indicatorTimer.Stop();
             if (indicatorForm != null && !indicatorForm.IsDisposed)
             {
                 indicatorForm.Hide();
             }
+        }
+
+        // Anasoko本体のウィンドウを見つけて、その右下隅にインジケーターを追従させる
+        private void IndicatorTimer_Tick(object sender, EventArgs e)
+        {
+            if (indicatorForm == null || indicatorForm.IsDisposed || !indicatorForm.Visible) return;
+
+            var rect = GetAnasokoWindowRect();
+            if (rect.HasValue) indicatorForm.PositionAt(rect.Value);
+        }
+
+        private Rectangle? GetAnasokoWindowRect()
+        {
+            var proc = Process.GetProcessesByName("Anasoko").FirstOrDefault();
+            if (proc == null || proc.MainWindowHandle == IntPtr.Zero) return null;
+            if (!GetWindowRect(proc.MainWindowHandle, out RECT r)) return null;
+            return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
         }
 
         // フォーム表示時、既に Anasoko.exe のパスがあれば曲名データベースの更新とモニター開始を自動で行う
