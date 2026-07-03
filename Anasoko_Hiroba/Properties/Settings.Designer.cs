@@ -56,5 +56,20 @@ namespace Anasoko_Hiroba.Properties
                 this["PcName"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowIndicator
+        {
+            get
+            {
+                return ((bool)(this["ShowIndicator"]));
+            }
+            set
+            {
+                this["ShowIndicator"] = value;
+            }
+        }
     }
 }

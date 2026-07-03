@@ -26,6 +26,9 @@ namespace Anasoko_Hiroba
 
         private static readonly HttpClient httpClient = new HttpClient();
         private static readonly string[] CourseNames = { "簡単", "普通", "難しい", "おに", "裏" };
+        private static readonly string[] ScoreFileNames = { "easy.bin", "normal.bin", "hard.bin", "oni.bin", "ura.bin" };
+
+        private IndicatorForm indicatorForm;
 
         public Form1()
         {
@@ -46,6 +49,9 @@ namespace Anasoko_Hiroba
             string savedPcName = Properties.Settings.Default.PcName;
             textBoxPcName.Text = string.IsNullOrEmpty(savedPcName) ? Environment.MachineName : savedPcName;
 
+            // インジケーター表示設定を復元する
+            checkBoxIndicator.Checked = Properties.Settings.Default.ShowIndicator;
+
             this.Load += Form1_Load;
         }
 
@@ -54,6 +60,36 @@ namespace Anasoko_Hiroba
         {
             Properties.Settings.Default.PcName = textBoxPcName.Text;
             Properties.Settings.Default.Save();
+        }
+
+        // インジケーター表示のON/OFFが変更されたら保存し、モニター中なら即座に反映する
+        private void checkBoxIndicator_CheckedChanged(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.ShowIndicator = checkBoxIndicator.Checked;
+            Properties.Settings.Default.Save();
+
+            if (watcher != null)
+            {
+                if (checkBoxIndicator.Checked) ShowIndicator();
+                else HideIndicator();
+            }
+        }
+
+        private void ShowIndicator()
+        {
+            if (indicatorForm == null || indicatorForm.IsDisposed)
+            {
+                indicatorForm = new IndicatorForm();
+            }
+            indicatorForm.Show();
+        }
+
+        private void HideIndicator()
+        {
+            if (indicatorForm != null && !indicatorForm.IsDisposed)
+            {
+                indicatorForm.Hide();
+            }
         }
 
         // フォーム表示時、既に Anasoko.exe のパスがあれば曲名データベースの更新とモニター開始を自動で行う
@@ -177,6 +213,8 @@ namespace Anasoko_Hiroba
             labelStatus.Text = "● モニター中";
             labelStatus.ForeColor = System.Drawing.Color.Green;
 
+            if (checkBoxIndicator.Checked) ShowIndicator();
+
             LogMessage("モニターを開始しました: " + scoreFolder);
         }
 
@@ -197,6 +235,8 @@ namespace Anasoko_Hiroba
             labelStatus.Text = "○ 停止中";
             labelStatus.ForeColor = System.Drawing.Color.Gray;
 
+            HideIndicator();
+
             LogMessage("モニターを終了しました。");
         }
 
@@ -204,6 +244,65 @@ namespace Anasoko_Hiroba
         private async void buttonUpdateCatalog_Click(object sender, EventArgs e)
         {
             await RunCatalogUpdateAsync(interactive: true);
+        }
+
+        // 「スコア一括登録」ボタンが押されたときの処理
+        // 保存されている全ての .bin ファイルを走査し、自己ベストを更新している分だけ Supabase へ登録する
+        private async void buttonBulkRegister_Click(object sender, EventArgs e)
+        {
+            string exePath = textBoxPath.Text;
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+            {
+                MessageBox.Show("「参照...」ボタンから Anasoko.exe を選択してください。");
+                return;
+            }
+
+            string exeDir = Path.GetDirectoryName(exePath);
+            string scoreFolder = Path.Combine(exeDir, "Data", "Scores");
+            if (!Directory.Exists(scoreFolder))
+            {
+                MessageBox.Show("スコアデータフォルダが見つかりません: " + scoreFolder);
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                "保存されている全スコアデータを走査し、自己ベストを更新している分だけ一括登録します。\n件数によっては時間がかかります。続行しますか？",
+                "確認", MessageBoxButtons.YesNo);
+            if (confirm != DialogResult.Yes) return;
+
+            buttonBulkRegister.Enabled = false;
+            LogMessage("スコアの一括登録を開始します: " + scoreFolder);
+
+            string pcName = string.IsNullOrEmpty(textBoxPcName.Text) ? Environment.MachineName : textBoxPcName.Text;
+
+            try
+            {
+                var (processed, registered) = await Task.Run(() =>
+                {
+                    var targetFiles = new List<string>();
+                    foreach (var name in ScoreFileNames)
+                    {
+                        targetFiles.AddRange(Directory.GetFiles(scoreFolder, name, SearchOption.AllDirectories));
+                    }
+
+                    int registeredCount = 0;
+                    foreach (var file in targetFiles)
+                    {
+                        if (ProcessScoreFile(file, pcName, silent: true)) registeredCount++;
+                    }
+                    return (targetFiles.Count, registeredCount);
+                });
+
+                LogMessage($"スコアの一括登録が完了しました（{processed}件中 {registered}件を新規登録）");
+            }
+            catch (Exception ex)
+            {
+                LogMessage("一括登録に失敗しました: " + ex.Message);
+            }
+            finally
+            {
+                buttonBulkRegister.Enabled = true;
+            }
         }
 
         // 曲名データベースを更新する（ボタンクリック・自動更新の両方から呼ばれる）
@@ -452,6 +551,17 @@ namespace Anasoko_Hiroba
         // 検知したファイルを読み込み、データベースへ登録する処理
         private void ProcessScoreData(string fullPath)
         {
+            string pcName = string.IsNullOrEmpty(textBoxPcName.Text) ? Environment.MachineName : textBoxPcName.Text;
+            ProcessScoreFile(fullPath, pcName, silent: false);
+        }
+
+        // 1件の .bin ファイルを読み込み、データベースへ登録する処理
+        // silent=true の場合、ログ・Discord通知を出さない（一括登録用）
+        // 戻り値: 新規登録できたら true
+        // ※ バックグラウンドスレッドから呼ばれる可能性があるため、UIコントロールへは直接アクセスしない
+        //   （pcName は呼び出し側があらかじめUIスレッドで読み取って渡す）
+        private bool ProcessScoreFile(string fullPath, string pcName, bool silent)
+        {
             try
             {
                 // 1. ファイル名からコース番号を判定
@@ -463,7 +573,7 @@ namespace Anasoko_Hiroba
                 else if (fileName == "oni.bin") course = 3;
                 else if (fileName == "ura.bin") course = 4;
 
-                if (course == -1) return; // 指定のbinファイル以外（余計なファイル）は無視
+                if (course == -1) return false; // 指定のbinファイル以外（余計なファイル）は無視
 
                 // 2. 親フォルダ名を曲の識別子として取得（Web側で曲名と照合するため）
                 string guid = new DirectoryInfo(Path.GetDirectoryName(fullPath)).Name;
@@ -512,51 +622,63 @@ namespace Anasoko_Hiroba
 
                 if (previousBest.HasValue && score <= previousBest.Value)
                 {
-                    LogMessage($"自己ベストを更新していないため登録をスキップしました: 曲={songName ?? guid}, コース={course}, スコア={score}（自己ベスト {previousBest.Value}）");
-                    return;
+                    if (!silent)
+                    {
+                        LogMessage($"自己ベストを更新していないため登録をスキップしました: 曲={songName ?? guid}, コース={course}, スコア={score}（自己ベスト {previousBest.Value}）");
+                    }
+                    return false;
                 }
 
-                string pcName = string.IsNullOrEmpty(textBoxPcName.Text) ? Environment.MachineName : textBoxPcName.Text;
                 InsertScoreToSupabase(guid, songName, genre, course, score, maxCombo, great, good, miss, renda, gauge, pcName);
 
                 int rank = existingScores.Count(s => s > score) + 1;
                 int total = existingScores.Count + 1;
 
                 string displayName = songName ?? guid;
-                LogMessage($"登録完了: 曲={displayName}, コース={course}, スコア={score}");
 
-                string courseName = (course >= 0 && course < CourseNames.Length) ? CourseNames[course] : $"コース{course}";
-                bool isNewRecord = !previousBest.HasValue || score > previousBest.Value;
-
-                // タイトルは新記録の時だけ「全一更新」を表示し、それ以外はタイトルなしで楽曲名から始める
-                string title = "";
-                if (isNewRecord)
+                if (!silent)
                 {
-                    string diffText = previousBest.HasValue ? $"（+{score - previousBest.Value}点）" : "";
-                    title = $"【全一更新！{diffText}】";
+                    LogMessage($"登録完了: 曲={displayName}, コース={course}, スコア={score}");
+
+                    string courseName = (course >= 0 && course < CourseNames.Length) ? CourseNames[course] : $"コース{course}";
+                    bool isNewRecord = !previousBest.HasValue || score > previousBest.Value;
+
+                    // タイトルは新記録の時だけ「全一更新」を表示し、それ以外はタイトルなしで楽曲名から始める
+                    string title = "";
+                    if (isNewRecord)
+                    {
+                        string diffText = previousBest.HasValue ? $"（+{score - previousBest.Value}点）" : "";
+                        title = $"【全一更新！{diffText}】";
+                    }
+
+                    string description =
+                        $"### 楽曲名 : {displayName}\n" +
+                        $"ジャンル : {(string.IsNullOrEmpty(genre) ? "不明" : genre)}\n" +
+                        $"コース : {courseName}\n" +
+                        $"PC : {pcName}\n\n" +
+                        $"スコア : {score:N0}\n" +
+                        $"良 : {great}\n" +
+                        $"可 : {good}\n" +
+                        $"不可 : {miss}\n" +
+                        $"連打数 : {renda}\n" +
+                        $"最大コンボ : {maxCombo}\n\n" +
+                        $"ランキング : {rank}位（{total}件中）";
+
+                    int color = isNewRecord ? 0xF1C40F : 0x3498DB;
+                    SendDiscordMessage(title, color, description);
                 }
 
-                string description =
-                    $"### 楽曲名 : {displayName}\n" +
-                    $"ジャンル : {(string.IsNullOrEmpty(genre) ? "不明" : genre)}\n" +
-                    $"コース : {courseName}\n" +
-                    $"PC : {pcName}\n\n" +
-                    $"スコア : {score:N0}\n" +
-                    $"良 : {great}\n" +
-                    $"可 : {good}\n" +
-                    $"不可 : {miss}\n" +
-                    $"連打数 : {renda}\n" +
-                    $"最大コンボ : {maxCombo}\n\n" +
-                    $"ランキング : {rank}位（{total}件中）";
-
-                int color = isNewRecord ? 0xF1C40F : 0x3498DB;
-                SendDiscordMessage(title, color, description);
+                return true;
             }
             catch (Exception ex)
             {
-                LogMessage("エラーが発生しました: " + ex.Message);
-                SendDiscordMessage("⚠️ スコア登録に失敗しました", 0xE74C3C,
-                    $"ファイル : {Path.GetFileName(fullPath)}\nエラー : {ex.Message}");
+                if (!silent)
+                {
+                    LogMessage("エラーが発生しました: " + ex.Message);
+                    SendDiscordMessage("⚠️ スコア登録に失敗しました", 0xE74C3C,
+                        $"ファイル : {Path.GetFileName(fullPath)}\nエラー : {ex.Message}");
+                }
+                return false;
             }
         }
 

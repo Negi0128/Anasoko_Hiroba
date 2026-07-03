@@ -37,6 +37,8 @@
             this.buttonStop = new System.Windows.Forms.Button();
             this.buttonUpdateCatalog = new System.Windows.Forms.Button();
             this.labelStatus = new System.Windows.Forms.Label();
+            this.buttonBulkRegister = new System.Windows.Forms.Button();
+            this.checkBoxIndicator = new System.Windows.Forms.CheckBox();
             this.listBoxLog = new System.Windows.Forms.ListBox();
             this.SuspendLayout();
             //
@@ -125,11 +127,34 @@
             this.labelStatus.Text = "○ 停止中";
             this.labelStatus.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
+            // buttonBulkRegister
+            //
+            this.buttonBulkRegister.Location = new System.Drawing.Point(15, 152);
+            this.buttonBulkRegister.Name = "buttonBulkRegister";
+            this.buttonBulkRegister.Size = new System.Drawing.Size(200, 30);
+            this.buttonBulkRegister.TabIndex = 10;
+            this.buttonBulkRegister.Text = "スコア一括登録";
+            this.buttonBulkRegister.UseVisualStyleBackColor = true;
+            this.buttonBulkRegister.Click += new System.EventHandler(this.buttonBulkRegister_Click);
+            //
+            // checkBoxIndicator
+            //
+            this.checkBoxIndicator.AutoSize = true;
+            this.checkBoxIndicator.Checked = true;
+            this.checkBoxIndicator.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.checkBoxIndicator.Location = new System.Drawing.Point(230, 159);
+            this.checkBoxIndicator.Name = "checkBoxIndicator";
+            this.checkBoxIndicator.Size = new System.Drawing.Size(200, 22);
+            this.checkBoxIndicator.TabIndex = 11;
+            this.checkBoxIndicator.Text = "モニター中インジケーター表示";
+            this.checkBoxIndicator.UseVisualStyleBackColor = true;
+            this.checkBoxIndicator.CheckedChanged += new System.EventHandler(this.checkBoxIndicator_CheckedChanged);
+            //
             // listBoxLog
             //
             this.listBoxLog.FormattingEnabled = true;
             this.listBoxLog.ItemHeight = 18;
-            this.listBoxLog.Location = new System.Drawing.Point(15, 161);
+            this.listBoxLog.Location = new System.Drawing.Point(15, 191);
             this.listBoxLog.Name = "listBoxLog";
             this.listBoxLog.Size = new System.Drawing.Size(773, 300);
             this.listBoxLog.TabIndex = 4;
@@ -138,7 +163,9 @@
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 18F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 480);
+            this.ClientSize = new System.Drawing.Size(800, 510);
+            this.Controls.Add(this.checkBoxIndicator);
+            this.Controls.Add(this.buttonBulkRegister);
             this.Controls.Add(this.listBoxLog);
             this.Controls.Add(this.labelStatus);
             this.Controls.Add(this.buttonUpdateCatalog);
@@ -167,6 +194,8 @@
         private System.Windows.Forms.Button buttonStop;
         private System.Windows.Forms.Button buttonUpdateCatalog;
         private System.Windows.Forms.Label labelStatus;
+        private System.Windows.Forms.Button buttonBulkRegister;
+        private System.Windows.Forms.CheckBox checkBoxIndicator;
         private System.Windows.Forms.ListBox listBoxLog;
     }
 }
