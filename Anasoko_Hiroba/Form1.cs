@@ -189,6 +189,7 @@ namespace Anasoko_Hiroba
             int savedY = Properties.Settings.Default.IndicatorPosY;
             if (savedX >= 0 && savedY >= 0)
             {
+                indicatorForm.EnsureSquareSize();
                 indicatorForm.Location = new Point(savedX, savedY);
             }
             else

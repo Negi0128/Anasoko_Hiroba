@@ -23,13 +23,19 @@ namespace Anasoko_Hiroba
         private bool dragging;
         private Point dragStart;
 
+        private static readonly Size IndicatorSize = new Size(36, 36);
+
         public IndicatorForm()
         {
+            // デザイナーを使わない素のフォームだと、フォント基準の自動スケーリングが縦横不均等にかかり
+            // 正方形のはずのウィンドウが楕円に見えるほど歪むことがあるため、明示的に無効化する
+            AutoScaleMode = AutoScaleMode.None;
+
             FormBorderStyle = FormBorderStyle.None;
             TopMost = true;
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
-            Size = new Size(36, 36);
+            Size = IndicatorSize;
 
             BackColor = Color.Magenta;
             TransparencyKey = Color.Magenta;
@@ -44,9 +50,16 @@ namespace Anasoko_Hiroba
             MouseUp += IndicatorForm_MouseUp;
         }
 
+        // 何らかの理由でサイズが歪んだ場合の保険として、正方形に戻す
+        public void EnsureSquareSize()
+        {
+            if (Size != IndicatorSize) Size = IndicatorSize;
+        }
+
         // 指定したウィンドウ範囲の右下隅付近に移動する（自動位置。手動指定時は使わない）
         public void PositionAt(Rectangle windowRect)
         {
+            EnsureSquareSize();
             Location = new Point(windowRect.Right - 60, windowRect.Bottom - 60);
         }
 
