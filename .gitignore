@@ -1,0 +1,17 @@
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+.vs/
+
+# NuGet packages (restore via packages.config)
+packages/
+
+# User-specific / local settings
+*.user
+*.suo
+
+# Local database
+*.db
+
+# Secrets - use App.config.example as a template
+App.config

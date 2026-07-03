@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+    <appSettings>
+        <add key="DiscordWebhookUrl" value="https://discord.com/api/webhooks/xxxxxxxx/xxxxxxxx" />
+        <add key="SupabaseUrl" value="https://xxxxxxxx.supabase.co" />
+        <add key="SupabaseAnonKey" value="xxxxxxxx" />
+    </appSettings>
+    <startup>
+        <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.7.2" />
+    </startup>
+</configuration>
