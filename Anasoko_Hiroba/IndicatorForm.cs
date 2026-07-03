@@ -126,6 +126,10 @@ namespace Anasoko_Hiroba
             {
                 e.Graphics.FillEllipse(brush, 3, 3, Width - 6, Height - 6);
             }
+            using (var borderPen = new Pen(Color.Black, 2))
+            {
+                e.Graphics.DrawEllipse(borderPen, 3, 3, Width - 6, Height - 6);
+            }
 
             if (PositioningMode)
             {
