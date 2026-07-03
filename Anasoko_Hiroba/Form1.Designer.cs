@@ -165,9 +165,9 @@
             //
             // buttonSetIndicatorPosition
             //
-            this.buttonSetIndicatorPosition.Location = new System.Drawing.Point(650, 155);
+            this.buttonSetIndicatorPosition.Location = new System.Drawing.Point(15, 188);
             this.buttonSetIndicatorPosition.Name = "buttonSetIndicatorPosition";
-            this.buttonSetIndicatorPosition.Size = new System.Drawing.Size(138, 30);
+            this.buttonSetIndicatorPosition.Size = new System.Drawing.Size(200, 30);
             this.buttonSetIndicatorPosition.TabIndex = 13;
             this.buttonSetIndicatorPosition.Text = "位置を指定";
             this.buttonSetIndicatorPosition.UseVisualStyleBackColor = true;
@@ -177,7 +177,7 @@
             //
             this.listBoxLog.FormattingEnabled = true;
             this.listBoxLog.ItemHeight = 18;
-            this.listBoxLog.Location = new System.Drawing.Point(15, 191);
+            this.listBoxLog.Location = new System.Drawing.Point(15, 226);
             this.listBoxLog.Name = "listBoxLog";
             this.listBoxLog.Size = new System.Drawing.Size(773, 300);
             this.listBoxLog.TabIndex = 4;
@@ -186,7 +186,7 @@
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 18F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 510);
+            this.ClientSize = new System.Drawing.Size(800, 545);
             this.Controls.Add(this.buttonSetIndicatorPosition);
             this.Controls.Add(this.checkBoxStartup);
             this.Controls.Add(this.checkBoxIndicator);

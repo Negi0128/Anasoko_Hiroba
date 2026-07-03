@@ -201,7 +201,7 @@ namespace Anasoko_Hiroba
         private bool IsFullscreenRect(Rectangle rect)
         {
             var bounds = Screen.FromRectangle(rect).Bounds;
-            const int tolerance = 4;
+            const int tolerance = 8;
             return Math.Abs(rect.Left - bounds.Left) <= tolerance
                 && Math.Abs(rect.Top - bounds.Top) <= tolerance
                 && Math.Abs(rect.Right - bounds.Right) <= tolerance

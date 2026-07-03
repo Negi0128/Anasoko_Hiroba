@@ -29,7 +29,7 @@ namespace Anasoko_Hiroba
             TopMost = true;
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
-            Size = new Size(28, 28);
+            Size = new Size(36, 36);
 
             BackColor = Color.Magenta;
             TransparencyKey = Color.Magenta;
@@ -109,15 +109,32 @@ namespace Anasoko_Hiroba
         {
             base.OnPaint(e);
             // TransparencyKey（色抜き）方式のため AntiAlias は使わない（縁がマゼンタ色でにじんで見えるのを防ぐ）
-            using (var brush = new SolidBrush(Color.Red))
+            int w = Width;
+            int h = Height;
+
+            // アプリアイコンと同じデザイン（太鼓風の丸）を描画する
+            using (var outerBrush = new SolidBrush(Color.FromArgb(178, 34, 34)))
             {
-                e.Graphics.FillEllipse(brush, 4, 4, Width - 8, Height - 8);
+                e.Graphics.FillEllipse(outerBrush, 1, 1, w - 2, h - 2);
             }
+
+            var innerRect = new Rectangle(4, 4, w - 8, h - 8);
+            using (var innerBrush = new System.Drawing.Drawing2D.LinearGradientBrush(innerRect, Color.FromArgb(255, 150, 70), Color.FromArgb(214, 44, 40), 45f))
+            {
+                e.Graphics.FillEllipse(innerBrush, innerRect);
+            }
+
+            int centerMargin = (int)(w * 0.32);
+            using (var centerBrush = new SolidBrush(Color.FromArgb(255, 250, 245)))
+            {
+                e.Graphics.FillEllipse(centerBrush, centerMargin, centerMargin, w - 2 * centerMargin, h - 2 * centerMargin);
+            }
+
             if (PositioningMode)
             {
                 using (var pen = new Pen(Color.White, 2))
                 {
-                    e.Graphics.DrawEllipse(pen, 2, 2, Width - 4, Height - 4);
+                    e.Graphics.DrawEllipse(pen, 0, 0, w - 1, h - 1);
                 }
             }
         }
