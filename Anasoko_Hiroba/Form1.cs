@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.SQLite;
@@ -446,6 +447,8 @@ namespace Anasoko_Hiroba
 
             try
             {
+                var bulkResults = new ConcurrentBag<string>();
+
                 var (processed, registered) = await Task.Run(() =>
                 {
                     var targetFiles = new List<string>();
@@ -457,12 +460,13 @@ namespace Anasoko_Hiroba
                     int registeredCount = 0;
                     foreach (var file in targetFiles)
                     {
-                        if (ProcessScoreFile(file, pcName, silent: true)) registeredCount++;
+                        if (ProcessScoreFile(file, pcName, silent: true, bulkResults: bulkResults)) registeredCount++;
                     }
                     return (targetFiles.Count, registeredCount);
                 });
 
                 LogMessage($"スコアの一括登録が完了しました（{processed}件中 {registered}件を新規登録）");
+                SendBulkDiscordSummary(pcName, processed, registered, bulkResults.ToList());
             }
             catch (Exception ex)
             {
@@ -729,7 +733,7 @@ namespace Anasoko_Hiroba
         // 戻り値: 新規登録できたら true
         // ※ バックグラウンドスレッドから呼ばれる可能性があるため、UIコントロールへは直接アクセスしない
         //   （pcName は呼び出し側があらかじめUIスレッドで読み取って渡す）
-        private bool ProcessScoreFile(string fullPath, string pcName, bool silent)
+        private bool ProcessScoreFile(string fullPath, string pcName, bool silent, ConcurrentBag<string> bulkResults = null)
         {
             try
             {
@@ -804,6 +808,12 @@ namespace Anasoko_Hiroba
                 int total = existingScores.Count + 1;
 
                 string displayName = songName ?? guid;
+
+                if (bulkResults != null)
+                {
+                    string courseNameForBulk = (course >= 0 && course < CourseNames.Length) ? CourseNames[course] : $"コース{course}";
+                    bulkResults.Add($"{displayName} / {courseNameForBulk} : {score:N0}点");
+                }
 
                 if (!silent)
                 {
@@ -914,6 +924,28 @@ namespace Anasoko_Hiroba
 
             var response = httpClient.SendAsync(request).GetAwaiter().GetResult();
             response.EnsureSuccessStatusCode();
+        }
+
+        // 「スコア一括登録」の結果をまとめて1件のDiscord通知として送信する
+        private void SendBulkDiscordSummary(string pcName, int processed, int registered, List<string> items)
+        {
+            string description;
+            if (items.Count == 0)
+            {
+                description = "新規登録された自己ベストはありませんでした。";
+            }
+            else
+            {
+                const int maxLines = 25;
+                description = string.Join("\n", items.Take(maxLines));
+                if (items.Count > maxLines)
+                {
+                    description += $"\n…ほか {items.Count - maxLines} 件";
+                }
+            }
+
+            string title = $"📦 スコア一括登録が完了しました（{pcName}） {processed}件中 {registered}件を新規登録";
+            SendDiscordMessage(title, 0x2ECC71, description);
         }
 
         // Discord Webhook へ Embed 形式の通知を送信する（失敗してもアプリ本体には影響させない）
