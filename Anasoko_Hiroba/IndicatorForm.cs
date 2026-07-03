@@ -122,32 +122,16 @@ namespace Anasoko_Hiroba
         {
             base.OnPaint(e);
             // TransparencyKey（色抜き）方式のため AntiAlias は使わない（縁がマゼンタ色でにじんで見えるのを防ぐ）
-            int w = Width;
-            int h = Height;
-
-            // アプリアイコンと同じデザイン（太鼓風の丸）を描画する
-            using (var outerBrush = new SolidBrush(Color.FromArgb(178, 34, 34)))
+            using (var brush = new SolidBrush(Color.Red))
             {
-                e.Graphics.FillEllipse(outerBrush, 1, 1, w - 2, h - 2);
-            }
-
-            var innerRect = new Rectangle(4, 4, w - 8, h - 8);
-            using (var innerBrush = new System.Drawing.Drawing2D.LinearGradientBrush(innerRect, Color.FromArgb(255, 150, 70), Color.FromArgb(214, 44, 40), 45f))
-            {
-                e.Graphics.FillEllipse(innerBrush, innerRect);
-            }
-
-            int centerMargin = (int)(w * 0.32);
-            using (var centerBrush = new SolidBrush(Color.FromArgb(255, 250, 245)))
-            {
-                e.Graphics.FillEllipse(centerBrush, centerMargin, centerMargin, w - 2 * centerMargin, h - 2 * centerMargin);
+                e.Graphics.FillEllipse(brush, 3, 3, Width - 6, Height - 6);
             }
 
             if (PositioningMode)
             {
                 using (var pen = new Pen(Color.White, 2))
                 {
-                    e.Graphics.DrawEllipse(pen, 0, 0, w - 1, h - 1);
+                    e.Graphics.DrawEllipse(pen, 1, 1, Width - 3, Height - 3);
                 }
             }
         }

@@ -236,6 +236,7 @@ namespace Anasoko_Hiroba
                 isPositioningIndicator = true;
                 buttonSetIndicatorPosition.Text = "位置を確定";
                 LogMessage("インジケーターをドラッグで好きな位置に移動し、「位置を確定」を押してください。");
+                LogMessage($"[診断] インジケーターの実際のサイズ: {indicatorForm.Size.Width} x {indicatorForm.Size.Height}, DPI: {this.DeviceDpi}");
             }
             else
             {
