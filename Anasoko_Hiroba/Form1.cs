@@ -80,6 +80,20 @@ namespace Anasoko_Hiroba
                 textBoxPath.Text = savedPath;
             }
 
+            // 前回選択した Songs / Scores フォルダを復元する
+            // （Anasoko.exe からの逆算だとPCごとのフォルダ構成の違いに対応できないため、手動指定にしている）
+            string savedSongsPath = Properties.Settings.Default.SongsFolderPath;
+            if (!string.IsNullOrEmpty(savedSongsPath) && Directory.Exists(savedSongsPath))
+            {
+                textBoxSongsPath.Text = savedSongsPath;
+            }
+
+            string savedScoresPath = Properties.Settings.Default.ScoresFolderPath;
+            if (!string.IsNullOrEmpty(savedScoresPath) && Directory.Exists(savedScoresPath))
+            {
+                textBoxScoresPath.Text = savedScoresPath;
+            }
+
             // PC名を復元する（未設定ならこのPCのコンピューター名を初期値にする）
             string savedPcName = Properties.Settings.Default.PcName;
             textBoxPcName.Text = string.IsNullOrEmpty(savedPcName) ? Environment.MachineName : savedPcName;
@@ -287,12 +301,18 @@ namespace Anasoko_Hiroba
             }
         }
 
-        // フォーム表示時、既に Anasoko.exe のパスがあれば曲名データベースの更新とモニター開始を自動で行う
+        // フォーム表示時、設定済みのフォルダがあれば曲名データベースの更新とモニター開始を自動で行う
+        // （曲名データベース更新とモニター開始は依存関係にないフォルダを使うため、それぞれ独立に判定する）
         private async void Form1_Load(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(textBoxPath.Text) && File.Exists(textBoxPath.Text))
+            if (!string.IsNullOrEmpty(textBoxPath.Text) && File.Exists(textBoxPath.Text) &&
+                !string.IsNullOrEmpty(textBoxSongsPath.Text) && Directory.Exists(textBoxSongsPath.Text))
             {
                 await RunCatalogUpdateAsync(interactive: false);
+            }
+
+            if (!string.IsNullOrEmpty(textBoxScoresPath.Text) && Directory.Exists(textBoxScoresPath.Text))
+            {
                 StartMonitoring(interactive: false);
             }
         }
@@ -351,8 +371,59 @@ namespace Anasoko_Hiroba
                     Properties.Settings.Default.AnasokoExePath = dialog.FileName;
                     Properties.Settings.Default.Save();
 
-                    // 選択した直後に曲名データベースの更新とモニター開始を自動で行う
+                    // Songsフォルダが既に設定済みなら、新しいAnasoko.exeを基準に曲名データベースを更新し直す
+                    if (!string.IsNullOrEmpty(textBoxSongsPath.Text) && Directory.Exists(textBoxSongsPath.Text))
+                    {
+                        await RunCatalogUpdateAsync(interactive: false);
+                    }
+                }
+            }
+        }
+
+        // 「Songsフォルダ 参照...」ボタンが押されたときの処理
+        // ※ Anasoko.exe のフォルダから逆算すると、PCごとにSongsフォルダの実際の場所が違う場合に
+        //   見つけられなかったため、ユーザーに直接フォルダを指定してもらう方式にしている
+        private async void buttonBrowseSongs_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "Anasoko の Songs フォルダを選択してください。";
+                if (!string.IsNullOrEmpty(textBoxSongsPath.Text)) dialog.SelectedPath = textBoxSongsPath.Text;
+
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    textBoxSongsPath.Text = dialog.SelectedPath;
+
+                    Properties.Settings.Default.SongsFolderPath = dialog.SelectedPath;
+                    Properties.Settings.Default.Save();
+
                     await RunCatalogUpdateAsync(interactive: false);
+                }
+            }
+        }
+
+        // 「Scoresフォルダ 参照...」ボタンが押されたときの処理
+        // ※ Anasoko.exe のフォルダから逆算すると、PCごとにScoresフォルダの実際の場所が違う場合に
+        //   見つけられずスコアが登録できなかったため、ユーザーに直接フォルダを指定してもらう方式にしている
+        private void buttonBrowseScores_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "Anasoko の Scores フォルダ（Data\\Scores）を選択してください。";
+                if (!string.IsNullOrEmpty(textBoxScoresPath.Text)) dialog.SelectedPath = textBoxScoresPath.Text;
+
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    textBoxScoresPath.Text = dialog.SelectedPath;
+
+                    Properties.Settings.Default.ScoresFolderPath = dialog.SelectedPath;
+                    Properties.Settings.Default.Save();
+
+                    // 既にモニター中なら一旦止めて、新しいフォルダで開始し直す
+                    if (watcher != null)
+                    {
+                        buttonStop_Click(sender, e);
+                    }
                     StartMonitoring(interactive: false);
                 }
             }
@@ -369,21 +440,11 @@ namespace Anasoko_Hiroba
         {
             if (watcher != null) return; // 既にモニター中
 
-            string exePath = textBoxPath.Text;
+            string scoreFolder = textBoxScoresPath.Text;
 
-            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+            if (string.IsNullOrEmpty(scoreFolder) || !Directory.Exists(scoreFolder))
             {
-                ReportProblem(interactive, "「参照...」ボタンから Anasoko.exe を選択してください。");
-                return;
-            }
-
-            // 1. Anasoko.exe のフォルダから、スコアデータフォルダを逆算する
-            string exeDir = Path.GetDirectoryName(exePath);
-            string scoreFolder = Path.Combine(exeDir, "Data", "Scores");
-
-            if (!Directory.Exists(scoreFolder))
-            {
-                ReportProblem(interactive, "スコアデータフォルダが見つかりません: " + scoreFolder);
+                ReportProblem(interactive, "「Scoresフォルダ」の参照...ボタンからスコアデータフォルダ（Data\\Scores）を選択してください。");
                 return;
             }
 
@@ -445,18 +506,10 @@ namespace Anasoko_Hiroba
         // 保存されている全ての .bin ファイルを走査し、自己ベストを更新している分だけ Supabase へ登録する
         private async void buttonBulkRegister_Click(object sender, EventArgs e)
         {
-            string exePath = textBoxPath.Text;
-            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+            string scoreFolder = textBoxScoresPath.Text;
+            if (string.IsNullOrEmpty(scoreFolder) || !Directory.Exists(scoreFolder))
             {
-                MessageBox.Show("「参照...」ボタンから Anasoko.exe を選択してください。");
-                return;
-            }
-
-            string exeDir = Path.GetDirectoryName(exePath);
-            string scoreFolder = Path.Combine(exeDir, "Data", "Scores");
-            if (!Directory.Exists(scoreFolder))
-            {
-                MessageBox.Show("スコアデータフォルダが見つかりません: " + scoreFolder);
+                MessageBox.Show("「Scoresフォルダ」の参照...ボタンからスコアデータフォルダ（Data\\Scores）を選択してください。");
                 return;
             }
 
@@ -513,10 +566,10 @@ namespace Anasoko_Hiroba
                 return;
             }
 
-            string songsPath = GetSongsPathFromConfig(exePath);
+            string songsPath = textBoxSongsPath.Text;
             if (string.IsNullOrEmpty(songsPath) || !Directory.Exists(songsPath))
             {
-                ReportProblem(interactive, "Songs フォルダが見つかりません（Config.json の songPath を確認してください）: " + songsPath);
+                ReportProblem(interactive, "「Songsフォルダ」の参照...ボタンから Songs フォルダを選択してください。");
                 return;
             }
 
@@ -550,22 +603,6 @@ namespace Anasoko_Hiroba
             {
                 LogMessage(message);
             }
-        }
-
-        // Anasoko.exe と同じフォルダの Data\Setting\Config.json から songPath を取得する
-        private string GetSongsPathFromConfig(string exePath)
-        {
-            string exeDir = Path.GetDirectoryName(exePath);
-            string configPath = Path.Combine(exeDir, "Data", "Setting", "Config.json");
-            if (!File.Exists(configPath))
-            {
-                return null;
-            }
-
-            string json = File.ReadAllText(configPath);
-            var serializer = new JavaScriptSerializer();
-            var config = serializer.Deserialize<Dictionary<string, object>>(json);
-            return config.TryGetValue("songPath", out object songPathObj) ? songPathObj as string : null;
         }
 
         // Songs フォルダ内の全 .tja を走査し、曲名から AnasCore と同じ方式でハッシュを計算して

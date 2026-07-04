@@ -45,6 +45,36 @@ namespace Anasoko_Hiroba.Properties
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SongsFolderPath
+        {
+            get
+            {
+                return ((string)(this["SongsFolderPath"]));
+            }
+            set
+            {
+                this["SongsFolderPath"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string ScoresFolderPath
+        {
+            get
+            {
+                return ((string)(this["ScoresFolderPath"]));
+            }
+            set
+            {
+                this["ScoresFolderPath"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string PcName
         {
             get

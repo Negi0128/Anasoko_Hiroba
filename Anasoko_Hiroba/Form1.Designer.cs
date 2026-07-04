@@ -31,6 +31,12 @@
             this.label1 = new System.Windows.Forms.Label();
             this.textBoxPath = new System.Windows.Forms.TextBox();
             this.buttonBrowse = new System.Windows.Forms.Button();
+            this.labelSongsPath = new System.Windows.Forms.Label();
+            this.textBoxSongsPath = new System.Windows.Forms.TextBox();
+            this.buttonBrowseSongs = new System.Windows.Forms.Button();
+            this.labelScoresPath = new System.Windows.Forms.Label();
+            this.textBoxScoresPath = new System.Windows.Forms.TextBox();
+            this.buttonBrowseScores = new System.Windows.Forms.Button();
             this.labelPcName = new System.Windows.Forms.Label();
             this.textBoxPcName = new System.Windows.Forms.TextBox();
             this.buttonStart = new System.Windows.Forms.Button();
@@ -71,10 +77,64 @@
             this.buttonBrowse.UseVisualStyleBackColor = true;
             this.buttonBrowse.Click += new System.EventHandler(this.buttonBrowse_Click);
             //
+            // labelSongsPath
+            //
+            this.labelSongsPath.AutoSize = true;
+            this.labelSongsPath.Location = new System.Drawing.Point(12, 45);
+            this.labelSongsPath.Name = "labelSongsPath";
+            this.labelSongsPath.Size = new System.Drawing.Size(103, 18);
+            this.labelSongsPath.TabIndex = 20;
+            this.labelSongsPath.Text = "Songsフォルダ :";
+            //
+            // textBoxSongsPath
+            //
+            this.textBoxSongsPath.Location = new System.Drawing.Point(197, 42);
+            this.textBoxSongsPath.Name = "textBoxSongsPath";
+            this.textBoxSongsPath.ReadOnly = true;
+            this.textBoxSongsPath.Size = new System.Drawing.Size(490, 25);
+            this.textBoxSongsPath.TabIndex = 21;
+            //
+            // buttonBrowseSongs
+            //
+            this.buttonBrowseSongs.Location = new System.Drawing.Point(697, 40);
+            this.buttonBrowseSongs.Name = "buttonBrowseSongs";
+            this.buttonBrowseSongs.Size = new System.Drawing.Size(91, 27);
+            this.buttonBrowseSongs.TabIndex = 22;
+            this.buttonBrowseSongs.Text = "参照...";
+            this.buttonBrowseSongs.UseVisualStyleBackColor = true;
+            this.buttonBrowseSongs.Click += new System.EventHandler(this.buttonBrowseSongs_Click);
+            //
+            // labelScoresPath
+            //
+            this.labelScoresPath.AutoSize = true;
+            this.labelScoresPath.Location = new System.Drawing.Point(12, 77);
+            this.labelScoresPath.Name = "labelScoresPath";
+            this.labelScoresPath.Size = new System.Drawing.Size(103, 18);
+            this.labelScoresPath.TabIndex = 23;
+            this.labelScoresPath.Text = "Scoresフォルダ :";
+            //
+            // textBoxScoresPath
+            //
+            this.textBoxScoresPath.Location = new System.Drawing.Point(197, 74);
+            this.textBoxScoresPath.Name = "textBoxScoresPath";
+            this.textBoxScoresPath.ReadOnly = true;
+            this.textBoxScoresPath.Size = new System.Drawing.Size(490, 25);
+            this.textBoxScoresPath.TabIndex = 24;
+            //
+            // buttonBrowseScores
+            //
+            this.buttonBrowseScores.Location = new System.Drawing.Point(697, 72);
+            this.buttonBrowseScores.Name = "buttonBrowseScores";
+            this.buttonBrowseScores.Size = new System.Drawing.Size(91, 27);
+            this.buttonBrowseScores.TabIndex = 25;
+            this.buttonBrowseScores.Text = "参照...";
+            this.buttonBrowseScores.UseVisualStyleBackColor = true;
+            this.buttonBrowseScores.Click += new System.EventHandler(this.buttonBrowseScores_Click);
+            //
             // labelPcName
             //
             this.labelPcName.AutoSize = true;
-            this.labelPcName.Location = new System.Drawing.Point(12, 45);
+            this.labelPcName.Location = new System.Drawing.Point(12, 109);
             this.labelPcName.Name = "labelPcName";
             this.labelPcName.Size = new System.Drawing.Size(60, 18);
             this.labelPcName.TabIndex = 8;
@@ -82,7 +142,7 @@
             //
             // textBoxPcName
             //
-            this.textBoxPcName.Location = new System.Drawing.Point(197, 42);
+            this.textBoxPcName.Location = new System.Drawing.Point(197, 106);
             this.textBoxPcName.Name = "textBoxPcName";
             this.textBoxPcName.Size = new System.Drawing.Size(300, 25);
             this.textBoxPcName.TabIndex = 9;
@@ -90,7 +150,7 @@
             //
             // buttonStart
             //
-            this.buttonStart.Location = new System.Drawing.Point(15, 82);
+            this.buttonStart.Location = new System.Drawing.Point(15, 147);
             this.buttonStart.Name = "buttonStart";
             this.buttonStart.Size = new System.Drawing.Size(142, 64);
             this.buttonStart.TabIndex = 2;
@@ -100,7 +160,7 @@
             //
             // buttonStop
             //
-            this.buttonStop.Location = new System.Drawing.Point(175, 82);
+            this.buttonStop.Location = new System.Drawing.Point(175, 147);
             this.buttonStop.Name = "buttonStop";
             this.buttonStop.Size = new System.Drawing.Size(142, 64);
             this.buttonStop.TabIndex = 3;
@@ -110,7 +170,7 @@
             //
             // buttonUpdateCatalog
             //
-            this.buttonUpdateCatalog.Location = new System.Drawing.Point(335, 82);
+            this.buttonUpdateCatalog.Location = new System.Drawing.Point(335, 147);
             this.buttonUpdateCatalog.Name = "buttonUpdateCatalog";
             this.buttonUpdateCatalog.Size = new System.Drawing.Size(142, 64);
             this.buttonUpdateCatalog.TabIndex = 6;
@@ -122,7 +182,7 @@
             //
             this.labelStatus.Font = new System.Drawing.Font("Yu Gothic UI", 14F, System.Drawing.FontStyle.Bold);
             this.labelStatus.ForeColor = System.Drawing.Color.Gray;
-            this.labelStatus.Location = new System.Drawing.Point(495, 82);
+            this.labelStatus.Location = new System.Drawing.Point(495, 147);
             this.labelStatus.Name = "labelStatus";
             this.labelStatus.Size = new System.Drawing.Size(293, 64);
             this.labelStatus.TabIndex = 7;
@@ -131,7 +191,7 @@
             //
             // buttonBulkRegister
             //
-            this.buttonBulkRegister.Location = new System.Drawing.Point(15, 152);
+            this.buttonBulkRegister.Location = new System.Drawing.Point(15, 217);
             this.buttonBulkRegister.Name = "buttonBulkRegister";
             this.buttonBulkRegister.Size = new System.Drawing.Size(200, 30);
             this.buttonBulkRegister.TabIndex = 10;
@@ -144,7 +204,7 @@
             this.checkBoxIndicator.AutoSize = true;
             this.checkBoxIndicator.Checked = true;
             this.checkBoxIndicator.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkBoxIndicator.Location = new System.Drawing.Point(230, 159);
+            this.checkBoxIndicator.Location = new System.Drawing.Point(230, 224);
             this.checkBoxIndicator.Name = "checkBoxIndicator";
             this.checkBoxIndicator.Size = new System.Drawing.Size(200, 22);
             this.checkBoxIndicator.TabIndex = 11;
@@ -155,7 +215,7 @@
             // checkBoxStartup
             //
             this.checkBoxStartup.AutoSize = true;
-            this.checkBoxStartup.Location = new System.Drawing.Point(440, 159);
+            this.checkBoxStartup.Location = new System.Drawing.Point(440, 224);
             this.checkBoxStartup.Name = "checkBoxStartup";
             this.checkBoxStartup.Size = new System.Drawing.Size(200, 22);
             this.checkBoxStartup.TabIndex = 12;
@@ -165,7 +225,7 @@
             //
             // buttonSetIndicatorPosition
             //
-            this.buttonSetIndicatorPosition.Location = new System.Drawing.Point(15, 188);
+            this.buttonSetIndicatorPosition.Location = new System.Drawing.Point(15, 253);
             this.buttonSetIndicatorPosition.Name = "buttonSetIndicatorPosition";
             this.buttonSetIndicatorPosition.Size = new System.Drawing.Size(200, 30);
             this.buttonSetIndicatorPosition.TabIndex = 13;
@@ -177,7 +237,7 @@
             //
             this.listBoxLog.FormattingEnabled = true;
             this.listBoxLog.ItemHeight = 18;
-            this.listBoxLog.Location = new System.Drawing.Point(15, 226);
+            this.listBoxLog.Location = new System.Drawing.Point(15, 291);
             this.listBoxLog.Name = "listBoxLog";
             this.listBoxLog.Size = new System.Drawing.Size(773, 300);
             this.listBoxLog.TabIndex = 4;
@@ -186,7 +246,7 @@
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 18F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 545);
+            this.ClientSize = new System.Drawing.Size(800, 610);
             this.Controls.Add(this.buttonSetIndicatorPosition);
             this.Controls.Add(this.checkBoxStartup);
             this.Controls.Add(this.checkBoxIndicator);
@@ -198,6 +258,12 @@
             this.Controls.Add(this.buttonStart);
             this.Controls.Add(this.textBoxPcName);
             this.Controls.Add(this.labelPcName);
+            this.Controls.Add(this.buttonBrowseScores);
+            this.Controls.Add(this.textBoxScoresPath);
+            this.Controls.Add(this.labelScoresPath);
+            this.Controls.Add(this.buttonBrowseSongs);
+            this.Controls.Add(this.textBoxSongsPath);
+            this.Controls.Add(this.labelSongsPath);
             this.Controls.Add(this.buttonBrowse);
             this.Controls.Add(this.textBoxPath);
             this.Controls.Add(this.label1);
@@ -213,6 +279,12 @@
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.TextBox textBoxPath;
         private System.Windows.Forms.Button buttonBrowse;
+        private System.Windows.Forms.Label labelSongsPath;
+        private System.Windows.Forms.TextBox textBoxSongsPath;
+        private System.Windows.Forms.Button buttonBrowseSongs;
+        private System.Windows.Forms.Label labelScoresPath;
+        private System.Windows.Forms.TextBox textBoxScoresPath;
+        private System.Windows.Forms.Button buttonBrowseScores;
         private System.Windows.Forms.Label labelPcName;
         private System.Windows.Forms.TextBox textBoxPcName;
         private System.Windows.Forms.Button buttonStart;
