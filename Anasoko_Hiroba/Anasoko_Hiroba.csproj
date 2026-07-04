@@ -7,7 +7,7 @@
     <ProjectGuid>{BAD0985B-37EE-4320-8D4B-932B22195DFF}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>Anasoko_Hiroba</RootNamespace>
-    <AssemblyName>Anasoko_Hiroba</AssemblyName>
+    <AssemblyName>Anasoko_Monitor</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
