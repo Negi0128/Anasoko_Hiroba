@@ -35,7 +35,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="AnasCore">
-      <HintPath>..\..\..\AnasCoreTools\AnasCoreTools\AnasCoreTools\AnasCoreTools\bin\Debug\AnasCore.dll</HintPath>
+      <HintPath>C:\Users\NegiA\Downloads\AnasCoreTools\AnasCoreTools\AnasCoreTools\bin\Debug\AnasCore.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
