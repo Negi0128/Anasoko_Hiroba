@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discord通知条件の設定 - Anasokoひろば</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Yu Gothic UI", sans-serif;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 24px 16px 64px;
+    line-height: 1.6;
+  }
+  h1 { font-size: 1.3rem; }
+  .card {
+    border: 1px solid #8884;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .row label { font-weight: bold; }
+  input[type="number"] {
+    width: 120px;
+    font-size: 1rem;
+    padding: 6px 8px;
+  }
+  input[type="checkbox"] { width: 22px; height: 22px; }
+  button {
+    width: 100%;
+    font-size: 1.05rem;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: #3498db;
+    color: white;
+  }
+  button:disabled { background: #999; }
+  #status { margin-top: 12px; font-size: 0.95rem; }
+  .hint { font-size: 0.85rem; color: #888; }
+</style>
+</head>
+<body>
+  <h1>Discord通知条件の設定</h1>
+  <p class="hint">ここで設定した条件のいずれかを満たしたスコアだけ、Discordに通知されます（Supabaseへのスコア登録自体は条件に関係なく常に行われます）。</p>
+
+  <div class="card">
+    <div class="row">
+      <label for="minScoreEnabled">スコアがしきい値以上のとき通知する</label>
+      <input type="checkbox" id="minScoreEnabled">
+    </div>
+    <div class="row">
+      <label for="minScore">しきい値（点）</label>
+      <input type="number" id="minScore" step="1000" min="0">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label for="fullComboEnabled">フルコンボのとき通知する</label>
+      <input type="checkbox" id="fullComboEnabled">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label for="allGreatEnabled">全良のとき通知する</label>
+      <input type="checkbox" id="allGreatEnabled">
+    </div>
+  </div>
+
+  <button id="saveButton">保存する</button>
+  <div id="status"></div>
+
+  <script>
+    // App.config の SupabaseUrl / SupabaseAnonKey と同じ値をここに設定してください。
+    // このページを配布・公開する場合、anonキーは閲覧者に見える状態になります。
+    // notify_settings テーブルへの読み書きのみ許可するRLSポリシーを設定した上で使ってください。
+    const SUPABASE_URL = "https://ycrrinkhjphpnxdaxjcy.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_lZcE91oagqwcz8A9SqZHSg_PBQ2j389";
+
+    const statusEl = document.getElementById("status");
+    const minScoreEnabledEl = document.getElementById("minScoreEnabled");
+    const minScoreEl = document.getElementById("minScore");
+    const fullComboEnabledEl = document.getElementById("fullComboEnabled");
+    const allGreatEnabledEl = document.getElementById("allGreatEnabled");
+    const saveButton = document.getElementById("saveButton");
+
+    function setStatus(message, isError) {
+      statusEl.textContent = message;
+      statusEl.style.color = isError ? "#e74c3c" : "#2ecc71";
+    }
+
+    async function loadSettings() {
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/notify_settings?id=eq.1&select=notify_on_min_score,min_score,notify_on_full_combo,notify_on_all_great`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        if (!res.ok) throw new Error(`読み込みに失敗しました (HTTP ${res.status})`);
+        const rows = await res.json();
+        if (rows.length === 0) {
+          setStatus("notify_settings に設定行がありません。先にSupabase側でid=1の行を作成してください。", true);
+          return;
+        }
+        const row = rows[0];
+        minScoreEnabledEl.checked = !!row.notify_on_min_score;
+        minScoreEl.value = row.min_score;
+        fullComboEnabledEl.checked = !!row.notify_on_full_combo;
+        allGreatEnabledEl.checked = !!row.notify_on_all_great;
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    }
+
+    async function saveSettings() {
+      saveButton.disabled = true;
+      setStatus("保存中...", false);
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/notify_settings?id=eq.1`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            notify_on_min_score: minScoreEnabledEl.checked,
+            min_score: Number(minScoreEl.value) || 0,
+            notify_on_full_combo: fullComboEnabledEl.checked,
+            notify_on_all_great: allGreatEnabledEl.checked,
+            updated_at: new Date().toISOString(),
+          }),
+        });
+        if (!res.ok) throw new Error(`保存に失敗しました (HTTP ${res.status})`);
+        setStatus("保存しました。", false);
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        saveButton.disabled = false;
+      }
+    }
+
+    saveButton.addEventListener("click", saveSettings);
+    loadSettings();
+  </script>
+</body>
+</html>
