@@ -51,7 +51,6 @@ namespace Anasoko_Hiroba
         private const string StartupValueName = "AnasokoHiroba";
 
         private const string NotifySettingsPageUrl = "https://negi0128.github.io/Anasoko_Hiroba/notify-settings/";
-        private const string RankingPageUrl = "https://negi0128.github.io/Anasoko_Hiroba/ranking/";
         private const string GitHubRepo = "Negi0128/Anasoko_Hiroba";
 
         [DllImport("user32.dll")]
@@ -346,20 +345,6 @@ namespace Anasoko_Hiroba
                 LogMessage("通知設定ページを開けませんでした: " + ex.Message);
             }
             LogMessage("通知設定ページ（スマホでも開けます）: " + NotifySettingsPageUrl);
-        }
-
-        // 「ランキングを見る」ボタン：スマホでも開けるランキング閲覧ページを既定のブラウザで開く
-        private void buttonOpenRanking_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo(RankingPageUrl) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                LogMessage("ランキングページを開けませんでした: " + ex.Message);
-            }
-            LogMessage("ランキングページ（スマホでも開けます）: " + RankingPageUrl);
         }
 
         // フォーム表示時、まずアップデートを確認し、その後設定済みのフォルダがあれば
