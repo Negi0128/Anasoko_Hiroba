@@ -50,6 +50,7 @@
             this.checkBoxStartup = new System.Windows.Forms.CheckBox();
             this.buttonSetIndicatorPosition = new System.Windows.Forms.Button();
             this.buttonOpenNotifySettings = new System.Windows.Forms.Button();
+            this.buttonOpenRanking = new System.Windows.Forms.Button();
             this.listBoxLog = new System.Windows.Forms.ListBox();
             this.SuspendLayout();
             //
@@ -263,6 +264,16 @@
             this.buttonOpenNotifySettings.UseVisualStyleBackColor = true;
             this.buttonOpenNotifySettings.Click += new System.EventHandler(this.buttonOpenNotifySettings_Click);
             //
+            // buttonOpenRanking
+            //
+            this.buttonOpenRanking.Location = new System.Drawing.Point(460, 285);
+            this.buttonOpenRanking.Name = "buttonOpenRanking";
+            this.buttonOpenRanking.Size = new System.Drawing.Size(180, 30);
+            this.buttonOpenRanking.TabIndex = 15;
+            this.buttonOpenRanking.Text = "ランキングを見る";
+            this.buttonOpenRanking.UseVisualStyleBackColor = true;
+            this.buttonOpenRanking.Click += new System.EventHandler(this.buttonOpenRanking_Click);
+            //
             // listBoxLog
             //
             this.listBoxLog.FormattingEnabled = true;
@@ -277,6 +288,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 18F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 642);
+            this.Controls.Add(this.buttonOpenRanking);
             this.Controls.Add(this.buttonOpenNotifySettings);
             this.Controls.Add(this.buttonSetIndicatorPosition);
             this.Controls.Add(this.checkBoxStartup);
@@ -331,6 +343,7 @@
         private System.Windows.Forms.CheckBox checkBoxStartup;
         private System.Windows.Forms.Button buttonSetIndicatorPosition;
         private System.Windows.Forms.Button buttonOpenNotifySettings;
+        private System.Windows.Forms.Button buttonOpenRanking;
         private System.Windows.Forms.ListBox listBoxLog;
     }
 }

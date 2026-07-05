@@ -40,12 +40,6 @@ namespace Anasoko_Hiroba
         // UIスレッド以外から除外カテゴリ設定を安全に参照するためのコピー（textBoxExcludedFolders と常に同期させる）
         private volatile string currentExcludedFolders = "";
 
-#if READONLY_BUILD
-        private const bool IsReadOnlyBuild = true;
-#else
-        private const bool IsReadOnlyBuild = false;
-#endif
-
         // 一括登録の実行中は、モニターによる同じファイルの二重処理を防ぐ
         private volatile bool isBulkRegistering;
 
@@ -57,6 +51,7 @@ namespace Anasoko_Hiroba
         private const string StartupValueName = "AnasokoHiroba";
 
         private const string NotifySettingsPageUrl = "https://negi0128.github.io/Anasoko_Hiroba/notify-settings/";
+        private const string RankingPageUrl = "https://negi0128.github.io/Anasoko_Hiroba/ranking/";
         private const string GitHubRepo = "Negi0128/Anasoko_Hiroba";
 
         [DllImport("user32.dll")]
@@ -122,13 +117,6 @@ namespace Anasoko_Hiroba
 
             // Windows起動時の自動起動設定を、実際のレジストリの状態から復元する（初期値はOFF）
             checkBoxStartup.Checked = IsStartupEnabled();
-
-            if (IsReadOnlyBuild)
-            {
-                // 閲覧専用ビルドでは外部配布時に誤って書き込みが行われないよう、一括登録を封じ、タイトルで明示する
-                buttonBulkRegister.Enabled = false;
-                this.Text += "（閲覧専用版）";
-            }
 
             this.Load += Form1_Load;
             this.FormClosing += Form1_FormClosing;
@@ -360,6 +348,20 @@ namespace Anasoko_Hiroba
             LogMessage("通知設定ページ（スマホでも開けます）: " + NotifySettingsPageUrl);
         }
 
+        // 「ランキングを見る」ボタン：スマホでも開けるランキング閲覧ページを既定のブラウザで開く
+        private void buttonOpenRanking_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(RankingPageUrl) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                LogMessage("ランキングページを開けませんでした: " + ex.Message);
+            }
+            LogMessage("ランキングページ（スマホでも開けます）: " + RankingPageUrl);
+        }
+
         // フォーム表示時、まずアップデートを確認し、その後設定済みのフォルダがあれば
         // 曲名データベースの更新とモニター開始を自動で行う
         // （曲名データベース更新とモニター開始は依存関係にないフォルダを使うため、それぞれ独立に判定する）
@@ -413,7 +415,7 @@ namespace Anasoko_Hiroba
                 Version currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
                 if (latestVersion <= currentVersion) return false;
 
-                string expectedAssetName = IsReadOnlyBuild ? "Anasoko_Monitor_ReadOnly.exe" : "Anasoko_Monitor.exe";
+                const string expectedAssetName = "Anasoko_Monitor.exe";
                 var assets = release["assets"] as System.Collections.ArrayList;
                 string downloadUrl = null;
                 if (assets != null)
@@ -1054,16 +1056,6 @@ namespace Anasoko_Hiroba
                     if (!silent)
                     {
                         LogMessage($"除外対象の譜面のため登録をスキップしました: 曲={songName ?? guid}");
-                    }
-                    return false;
-                }
-
-                // 閲覧専用ビルドでは、外部配布時に誤って書き込みが行われないよう登録自体を行わない
-                if (IsReadOnlyBuild)
-                {
-                    if (!silent)
-                    {
-                        LogMessage($"閲覧専用ビルドのため登録をスキップしました: 曲={songName ?? guid}");
                     }
                     return false;
                 }

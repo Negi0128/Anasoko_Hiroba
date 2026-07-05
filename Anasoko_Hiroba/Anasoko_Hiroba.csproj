@@ -33,17 +33,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release-ReadOnly|AnyCPU' ">
-    <!-- 外部配布用：Supabaseへの書き込み・Discord通知を行わない閲覧専用ビルド -->
-    <PlatformTarget>x64</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release-ReadOnly\</OutputPath>
-    <DefineConstants>TRACE;READONLY_BUILD</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AssemblyName>Anasoko_Monitor_ReadOnly</AssemblyName>
-  </PropertyGroup>
   <ItemGroup>
     <Reference Include="AnasCore">
       <HintPath>..\..\..\AnasCoreTools\AnasCoreTools\AnasCoreTools\AnasCoreTools\bin\Debug\AnasCore.dll</HintPath>
