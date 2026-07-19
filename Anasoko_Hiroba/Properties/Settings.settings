@@ -10,6 +10,9 @@
     <Setting Name="SongsFolderPath" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>
+    <Setting Name="DaniFolderPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)"></Value>
+    </Setting>
     <Setting Name="ScoresFolderPath" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>
@@ -29,6 +32,9 @@
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="ExcludedCategoryFolders" Type="System.String" Scope="User">
+      <Value Profile="(Default)"></Value>
+    </Setting>
+    <Setting Name="RewardDestFolderPath" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>
   </Settings>

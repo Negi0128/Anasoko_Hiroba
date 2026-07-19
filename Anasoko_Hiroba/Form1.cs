@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using AnasCore; // AnasCore.dll の読み込み
+using AnasPack; // 楽曲解禁パック（Shared\AnasPack）の読み込み
 using Microsoft.Win32;
 
 namespace Anasoko_Hiroba
@@ -37,6 +38,13 @@ namespace Anasoko_Hiroba
         // UIスレッド以外からPC名を安全に参照するためのコピー（textBoxPcName と常に同期させる）
         private volatile string currentPcName = "";
 
+        // UIスレッド以外からSongsフォルダを安全に参照するためのコピー（textBoxSongsPath と常に同期させる）
+        // ※ FileSystemWatcher のスレッドから楽曲解禁パックの展開先として参照する
+        private volatile string currentSongsFolder = "";
+
+        // 楽曲解禁パック（.anskpack、v2）の導入・照合・解禁ロジック
+        private readonly PackUnlockService packService;
+
         // UIスレッド以外から除外カテゴリ設定を安全に参照するためのコピー（textBoxExcludedFolders と常に同期させる）
         private volatile string currentExcludedFolders = "";
 
@@ -44,6 +52,8 @@ namespace Anasoko_Hiroba
         private volatile bool isBulkRegistering;
 
         private IndicatorForm indicatorForm;
+        // 解禁時にインジケーターの横へ数秒だけ出すメッセージ用オーバーレイ
+        private MessageOverlayForm messageForm;
         private readonly System.Windows.Forms.Timer indicatorTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         private bool isPositioningIndicator;
 
@@ -80,6 +90,10 @@ namespace Anasoko_Hiroba
 
             EnsureDatabase();
 
+            // 楽曲解禁パックの管理クラスを初期化する
+            // （一覧の初回表示は、ウィンドウハンドル作成後の Form1_Load で行う）
+            packService = new PackUnlockService(dbPath);
+
             // 前回選択した Anasoko.exe のパスを復元する
             string savedPath = Properties.Settings.Default.AnasokoExePath;
             if (!string.IsNullOrEmpty(savedPath) && File.Exists(savedPath))
@@ -99,6 +113,13 @@ namespace Anasoko_Hiroba
             if (!string.IsNullOrEmpty(savedScoresPath) && Directory.Exists(savedScoresPath))
             {
                 textBoxScoresPath.Text = savedScoresPath;
+            }
+
+            // 前回選択した Dani フォルダ（楽曲解禁パックv2: 段位道場の導入先）を復元する
+            string savedDaniPath = Properties.Settings.Default.DaniFolderPath;
+            if (!string.IsNullOrEmpty(savedDaniPath) && Directory.Exists(savedDaniPath))
+            {
+                textBoxDaniPath.Text = savedDaniPath;
             }
 
             // 除外カテゴリ（練習用・非公式譜面フォルダなど）を復元する
@@ -190,6 +211,14 @@ namespace Anasoko_Hiroba
         {
             currentPcName = textBoxPcName.Text;
             Properties.Settings.Default.PcName = textBoxPcName.Text;
+        }
+
+        // 「Songsフォルダ」欄が変更されたら、ウォッチャースレッドから安全に参照できるコピーを更新する
+        // （楽曲解禁パックの展開先として FileSystemWatcher のイベントハンドラから参照するため）
+        private void textBoxSongsPath_TextChanged(object sender, EventArgs e)
+        {
+            currentSongsFolder = textBoxSongsPath.Text;
+            Properties.Settings.Default.SongsFolderPath = textBoxSongsPath.Text;
         }
 
         // インジケーター表示のON/OFFが変更されたら保存し、モニター中なら即座に反映する
@@ -352,6 +381,9 @@ namespace Anasoko_Hiroba
         // （曲名データベース更新とモニター開始は依存関係にないフォルダを使うため、それぞれ独立に判定する）
         private async void Form1_Load(object sender, EventArgs e)
         {
+            // 導入済みパックの一覧を表示する（コンストラクタ時点ではハンドル未作成で表示できないためここで行う）
+            RefreshPackListView();
+
             if (await CheckForUpdateAsync())
             {
                 return; // アップデートを適用して終了するため、以降の自動処理は行わない
@@ -367,6 +399,10 @@ namespace Anasoko_Hiroba
             {
                 StartMonitoring(interactive: false);
             }
+
+            // 起動時に、導入済みだが未解禁のパックがあれば条件チェックする
+            // （Monitor停止中に段位に合格していた場合の救済。仕様書6章の3）
+            await CheckAndUnlockPacksAsync();
         }
 
         // GitHub Releases の最新リリースを確認し、現在より新しいバージョンがあれば
@@ -555,21 +591,61 @@ namespace Anasoko_Hiroba
         //   見つけられなかったため、ユーザーに直接フォルダを指定してもらう方式にしている
         private async void buttonBrowseSongs_Click(object sender, EventArgs e)
         {
-            using (var dialog = new FolderBrowserDialog())
-            {
-                dialog.Description = "Anasoko の Songs フォルダを選択してください。";
-                if (!string.IsNullOrEmpty(textBoxSongsPath.Text)) dialog.SelectedPath = textBoxSongsPath.Text;
+            string selected = ModernFolderDialog.Show(this, "Anasoko の Songs フォルダを選択してください。", textBoxSongsPath.Text);
+            if (selected == null) return;
 
-                if (dialog.ShowDialog() == DialogResult.OK)
-                {
-                    textBoxSongsPath.Text = dialog.SelectedPath;
+            textBoxSongsPath.Text = selected;
+            Properties.Settings.Default.SongsFolderPath = selected;
+            Properties.Settings.Default.Save();
 
-                    Properties.Settings.Default.SongsFolderPath = dialog.SelectedPath;
-                    Properties.Settings.Default.Save();
+            await RunCatalogUpdateAsync(interactive: false);
+        }
 
-                    await RunCatalogUpdateAsync(interactive: false);
-                }
-            }
+        // 「Daniフォルダ 参照...」ボタンが押されたときの処理
+        // ※ 楽曲解禁パック（v2）の段位道場は、ここで指定した Anasoko の Dani フォルダへ導入される
+        private void buttonBrowseDani_Click(object sender, EventArgs e)
+        {
+            string selected = ModernFolderDialog.Show(this, "Anasoko の Dani フォルダを選択してください。", textBoxDaniPath.Text);
+            if (selected == null) return;
+
+            textBoxDaniPath.Text = selected;
+            Properties.Settings.Default.DaniFolderPath = selected;
+            Properties.Settings.Default.Save();
+        }
+
+        // 段位道場の導入先（Daniフォルダ）を、パック読み込みのたびに明示的に選ばせる。
+        // 前回の設定値を初期選択にするので、変更なければそのまま確定するだけでよい。
+        // キャンセルした場合は null を返す。
+        private string PromptDaniFolder()
+        {
+            string initial = !string.IsNullOrEmpty(textBoxDaniPath.Text) ? textBoxDaniPath.Text : null;
+            string selected = ModernFolderDialog.Show(this,
+                "段位道場の導入先（Anasoko の Dani フォルダ）を選択してください。", initial);
+            if (selected == null) return null;
+
+            textBoxDaniPath.Text = selected;
+            Properties.Settings.Default.DaniFolderPath = selected;
+            Properties.Settings.Default.Save();
+            return selected;
+        }
+
+        // ごほうび曲を入れるフォルダ（Songs内の任意のジャンル/カテゴリフォルダ）を、
+        // パック読み込みのたびに明示的に選ばせる。ここで選んだフォルダの直下へ、合格時に
+        // ごほうび曲が曲フォルダ単位で展開される。配置先はパック単位でDBに記録される。
+        // 前回の設定値を初期選択にするので、変更なければそのまま確定するだけでよい。
+        // キャンセルした場合は null を返す。
+        private string PromptRewardDestFolder()
+        {
+            string initial = !string.IsNullOrEmpty(Properties.Settings.Default.RewardDestFolderPath)
+                ? Properties.Settings.Default.RewardDestFolderPath
+                : (!string.IsNullOrEmpty(textBoxSongsPath.Text) ? textBoxSongsPath.Text : null);
+            string selected = ModernFolderDialog.Show(this,
+                "ごほうび曲を入れるフォルダ（Songs内の任意のジャンルフォルダ）を選択してください。", initial);
+            if (selected == null) return null;
+
+            Properties.Settings.Default.RewardDestFolderPath = selected;
+            Properties.Settings.Default.Save();
+            return selected;
         }
 
         // 「Scoresフォルダ 参照...」ボタンが押されたときの処理
@@ -577,26 +653,19 @@ namespace Anasoko_Hiroba
         //   見つけられずスコアが登録できなかったため、ユーザーに直接フォルダを指定してもらう方式にしている
         private void buttonBrowseScores_Click(object sender, EventArgs e)
         {
-            using (var dialog = new FolderBrowserDialog())
+            string selected = ModernFolderDialog.Show(this, "Anasoko の Scores フォルダ（Data\\Scores）を選択してください。", textBoxScoresPath.Text);
+            if (selected == null) return;
+
+            textBoxScoresPath.Text = selected;
+            Properties.Settings.Default.ScoresFolderPath = selected;
+            Properties.Settings.Default.Save();
+
+            // 既にモニター中なら一旦止めて、新しいフォルダで開始し直す
+            if (watcher != null)
             {
-                dialog.Description = "Anasoko の Scores フォルダ（Data\\Scores）を選択してください。";
-                if (!string.IsNullOrEmpty(textBoxScoresPath.Text)) dialog.SelectedPath = textBoxScoresPath.Text;
-
-                if (dialog.ShowDialog() == DialogResult.OK)
-                {
-                    textBoxScoresPath.Text = dialog.SelectedPath;
-
-                    Properties.Settings.Default.ScoresFolderPath = dialog.SelectedPath;
-                    Properties.Settings.Default.Save();
-
-                    // 既にモニター中なら一旦止めて、新しいフォルダで開始し直す
-                    if (watcher != null)
-                    {
-                        buttonStop_Click(sender, e);
-                    }
-                    StartMonitoring(interactive: false);
-                }
+                buttonStop_Click(sender, e);
             }
+            StartMonitoring(interactive: false);
         }
 
         // 「モニター開始」ボタンが押されたときの処理
@@ -624,10 +693,14 @@ namespace Anasoko_Hiroba
             watcher.IncludeSubdirectories = true; // プロフィールGUIDフォルダの下まで再帰的にモニターする
             watcher.Filter = "*.*"; // 全てのファイルをモニター対象とする
             watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName;
+            // イベントバッファ溢れ（Error イベント）を起きにくくするため既定より大きめに確保する
+            watcher.InternalBufferSize = 64 * 1024;
 
             // ファイル作成・更新時に実行するイベントを登録
             watcher.Created += OnFileUpdated;
             watcher.Changed += OnFileUpdated;
+            // バッファ溢れ等の異常発生時に検知できるよう記録する
+            watcher.Error += OnWatcherError;
 
             watcher.EnableRaisingEvents = true;
 
@@ -644,12 +717,20 @@ namespace Anasoko_Hiroba
             LogMessage("モニターを開始しました: " + scoreFolder);
         }
 
+        // FileSystemWatcher でイベントバッファが溢れた・監視自体でエラーが発生したときに呼ばれる
+        // （ウォッチャーのスレッドから呼ばれる可能性があるが、LogMessage はスレッドセーフ実装済み）
+        private void OnWatcherError(object sender, ErrorEventArgs e)
+        {
+            LogMessage("モニターのイベントバッファが溢れた、またはエラーが発生しました: " + e.GetException()?.Message);
+        }
+
         // 「モニター終了」ボタンが押されたときの処理
         private void buttonStop_Click(object sender, EventArgs e)
         {
             if (watcher != null)
             {
                 watcher.EnableRaisingEvents = false;
+                watcher.Error -= OnWatcherError;
                 watcher.Dispose();
                 watcher = null;
             }
@@ -894,8 +975,10 @@ namespace Anasoko_Hiroba
             // 一括登録の実行中は、同じファイルを二重処理しないよう検知をスキップする
             if (isBulkRegistering) return;
 
-            // フォルダの作成・変更（曲GUIDフォルダ自体など）や、対象外のファイルは無視する
-            if (!IsScoreFile(e.FullPath))
+            // フォルダの作成・変更（曲GUIDフォルダ自体など）や、対象外のファイルは無視する。
+            // 段位bin（dani\Local\*.bin）はスコアファイルとは別経路（楽曲解禁パックの照合）で処理する
+            bool isDanBin = IsDanBinFile(e.FullPath);
+            if (!isDanBin && !IsScoreFile(e.FullPath))
             {
                 return;
             }
@@ -928,6 +1011,12 @@ namespace Anasoko_Hiroba
                 return;
             }
 
+            if (isDanBin)
+            {
+                OnDanBinUpdated(e.FullPath, e.Name);
+                return;
+            }
+
             // 通信を含む登録処理もウォッチャーのスレッドのまま実行し、UIを固まらせない
             // （LogMessage はスレッドセーフにしてあり、UIへは内部で安全に反映される）
             LogMessage("スコアデータの更新を検知しました: " + e.Name);
@@ -943,6 +1032,39 @@ namespace Anasoko_Hiroba
             string fileName = Path.GetFileName(path).ToLower();
             return fileName == "easy.bin" || fileName == "normal.bin" || fileName == "hard.bin"
                 || fileName == "oni.bin" || fileName == "ura.bin";
+        }
+
+        // 段位bin（Data\Scores\<プロファイルGUID>\dani\Local\<dan_hash>.bin）かどうかを判定する
+        private bool IsDanBinFile(string path)
+        {
+            if (!File.Exists(path)) return false;
+            if (!path.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) return false;
+            return path.IndexOf(@"\dani\Local\", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // 段位bin の更新を検知したときの処理（ウォッチャースレッドで実行される）。
+        // ファイル名(=dan_hash)と一致する未解禁パックがあれば条件判定し、満たしていれば解禁する。
+        private void OnDanBinUpdated(string fullPath, string name)
+        {
+            LogMessage("段位記録の更新を検知しました: " + name);
+
+            try
+            {
+                // ごほうびの展開先はパックごとにDB（reward_dest_dir）へ記録済みなので、ここでは渡さない
+                var results = packService.TryUnlockForDanBin(fullPath);
+                foreach (var result in results)
+                {
+                    ReportPackUnlocked(result);
+                }
+                if (results.Count > 0)
+                {
+                    RefreshPackListView();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage("楽曲解禁パックの処理に失敗しました: " + ex.Message);
+            }
         }
 
         // Anasoko側がファイルの書き込みを終える（排他ロックを解放する）まで待機する
@@ -1289,6 +1411,250 @@ namespace Anasoko_Hiroba
             {
                 LogMessage("Discord通知に失敗しました: " + ex.Message);
             }
+        }
+
+        // 「anskpack読み込み」ボタンが押されたときの処理
+        // Dani/Songsフォルダが未設定ならその場で選ばせて設定へ保存し、パックの読み込み・
+        // 段位道場の即時導入・DB記録までを行う。
+        private async void buttonAddPack_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new OpenFileDialog())
+            {
+                dialog.Title = "楽曲解禁パックを選択してください";
+                dialog.Filter = "楽曲解禁パック (*.anskpack)|*.anskpack";
+                dialog.CheckFileExists = true;
+
+                if (dialog.ShowDialog() != DialogResult.OK) return;
+
+                // 読み込みのたびに「段位道場の導入先」と「ごほうび曲を入れるフォルダ」を明示的に選ばせる
+                // （前回値が初期選択に入るので、変えないなら確定するだけ）
+                string daniFolder = PromptDaniFolder();
+                if (string.IsNullOrEmpty(daniFolder)) return; // ユーザーがキャンセル
+
+                string rewardDestFolder = PromptRewardDestFolder();
+                if (string.IsNullOrEmpty(rewardDestFolder)) return; // ユーザーがキャンセル
+
+                try
+                {
+                    var manifest = packService.ImportPack(dialog.FileName, daniFolder, rewardDestFolder);
+                    string destFolderName = new DirectoryInfo(rewardDestFolder).Name;
+
+                    LogMessage($"楽曲解禁パックを読み込みました: {manifest.name}（ルール数: {manifest.rules.Count}）");
+                    LogMessage("段位セットを導入しました。Anasokoを再起動すると段位道場に追加されます。");
+
+                    // ルールごとに導入案内をログ・Discordへ出す
+                    foreach (var rule in manifest.rules)
+                    {
+                        string display = string.IsNullOrEmpty(rule.target_dan_display)
+                            ? rule.target_rank_folder : rule.target_dan_display;
+                        string conditionName = DanBinReader.ConditionDisplayName(rule.condition);
+                        string guide = $"段位道場「{display}」を{conditionName}すると、新曲が「{destFolderName}」に追加されます！";
+                        LogMessage(guide);
+
+                        string description =
+                            $"### {manifest.name}\n" +
+                            $"対象段位 : {display}\n" +
+                            $"条件 : {conditionName}\n\n" +
+                            guide;
+                        SendDiscordMessage("📥 楽曲解禁パックを読み込みました", 0x3498DB, description);
+                    }
+
+                    RefreshPackListView();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("パックの読み込みに失敗しました: " + ex.Message);
+                    LogMessage("パックの読み込みに失敗しました: " + ex.Message);
+                    return;
+                }
+            }
+
+            // 導入前に既に段位へ合格済みだった場合の救済（仕様書7章）
+            await CheckAndUnlockPacksAsync(announceIfBlocked: true);
+        }
+
+        // 「パック削除」ボタンが押されたときの処理
+        // 一覧で選択したパックについて、パックファイル・導入した段位道場・
+        // （解禁済みなら）展開済みのごほうび曲をまとめて削除する。
+        private void buttonDeletePack_Click(object sender, EventArgs e)
+        {
+            if (listViewPacks.SelectedItems.Count == 0)
+            {
+                MessageBox.Show("削除するパックを一覧から選択してください。");
+                return;
+            }
+
+            var item = listViewPacks.SelectedItems[0];
+            string fileName = item.Tag as string;
+            if (string.IsNullOrEmpty(fileName)) return;
+
+            var confirm = MessageBox.Show(
+                $"パック「{item.Text}」を削除します。\n導入済みの段位道場と、解禁済みの場合はごほうび曲もあわせて削除されます。\nよろしいですか？",
+                "パックの削除", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes) return;
+
+            try
+            {
+                packService.DeletePack(fileName, textBoxDaniPath.Text);
+                LogMessage($"楽曲解禁パックを削除しました: {item.Text}");
+                RefreshPackListView();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("パックの削除に失敗しました: " + ex.Message);
+                LogMessage("パックの削除に失敗しました: " + ex.Message);
+            }
+        }
+
+        // Scores内の全プロファイルを走査し、条件を満たす未解禁パックをまとめて解禁する
+        // （パック追加直後・起動時の両方から呼ばれる）
+        // announceIfBlocked: 前提フォルダ未設定で解禁チェックを行えない場合にログで知らせるか
+        //   （手動読み込み時は true。起動時の自動チェックは毎回ログが出て煩いので false）
+        private async Task CheckAndUnlockPacksAsync(bool announceIfBlocked = false)
+        {
+            string scoresFolder = textBoxScoresPath.Text;
+            if (string.IsNullOrEmpty(scoresFolder) || !Directory.Exists(scoresFolder))
+            {
+                if (announceIfBlocked)
+                {
+                    LogMessage("楽曲解禁パック: Scoresフォルダが未設定のため、既に合格済みかの確認ができません。"
+                        + "「Scoresフォルダ」を設定すると、合格済みの段位のごほうびがすぐ解禁されます。");
+                }
+                return;
+            }
+
+            List<PackUnlockService.UnlockResult> results;
+            try
+            {
+                // ファイルI/Oを伴うためバックグラウンドスレッドで実行し、UIを固まらせない
+                // （ごほうびの展開先はパックごとにDBへ記録済みなので渡さない）
+                results = await Task.Run(() => packService.CheckAndUnlockAll(scoresFolder));
+            }
+            catch (Exception ex)
+            {
+                LogMessage("楽曲解禁パックのチェックに失敗しました: " + ex.Message);
+                return;
+            }
+
+            foreach (var result in results)
+            {
+                ReportPackUnlocked(result);
+            }
+
+            if (results.Count > 0)
+            {
+                RefreshPackListView();
+            }
+        }
+
+        // パックが解禁されたときのログ表示・Discord通知（どのスレッドから呼んでも安全）
+        private void ReportPackUnlocked(PackUnlockService.UnlockResult result)
+        {
+            string conditionName = DanBinReader.ConditionDisplayName(result.Condition);
+            string destFolderName = string.IsNullOrEmpty(result.RewardDest)
+                ? "" : new DirectoryInfo(result.RewardDest).Name;
+
+            LogMessage($"楽曲解禁パックが解禁されました: {result.PackName}（段位: {result.TargetDisplay}）");
+
+            string description =
+                $"### {result.PackName}\n" +
+                $"対象段位 : {result.TargetDisplay}\n" +
+                $"条件 : {conditionName}\n\n" +
+                (string.IsNullOrEmpty(result.Message) ? "" : result.Message + "\n\n") +
+                (string.IsNullOrEmpty(destFolderName) ? "" : $"新曲が「{destFolderName}」に追加されました。\n") +
+                "Anasokoを再起動すると選曲画面に反映されます。";
+
+            SendDiscordMessage("🎉 楽曲解禁！", 0xF1C40F, description);
+
+            // 画面のインジケーター横にも解禁メッセージを表示する（プレイ中に気づけるように）。
+            // 固定文を必ず出し、パックに解禁メッセージが設定されていればその上の行に添える（＝二行）。
+            const string fixedLine = "楽曲が新たに解禁されました！Anasokoを再起動すると反映されます。";
+            string onScreen = string.IsNullOrEmpty(result.Message)
+                ? fixedLine
+                : result.Message + "\n" + fixedLine;
+            ShowIndicatorMessage(onScreen);
+        }
+
+        // インジケーターの左隣に解禁メッセージを数秒表示する（どのスレッドから呼んでも安全）
+        private void ShowIndicatorMessage(string text)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke((MethodInvoker)(() => ShowIndicatorMessage(text)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // フォームを閉じる直前のタイミングでは無視する
+                }
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            // フルスクリーンでインジケーターが表示されているときだけ出す（プレイ中のみ。
+            // Monitor画面で読み込んだ際など、インジケーターが出ていないときは表示しない）
+            if (indicatorForm == null || indicatorForm.IsDisposed || !indicatorForm.Visible) return;
+
+            if (messageForm == null || messageForm.IsDisposed)
+            {
+                messageForm = new MessageOverlayForm();
+            }
+
+            // インジケーターの左隣（右端・垂直中央）に配置する
+            Point anchor = new Point(indicatorForm.Left - 8, indicatorForm.Top + indicatorForm.Height / 2);
+            messageForm.ShowMessage(text, anchor);
+        }
+
+        // パック一覧（ListView）を最新の状態に更新する。
+        // FileSystemWatcher のスレッドから呼ばれる可能性があるため、UIスレッドへ切り替えてから操作する
+        private void RefreshPackListView()
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke((MethodInvoker)RefreshPackListView);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // フォームを閉じる直前のタイミングでは無視する
+                }
+                return;
+            }
+
+            listViewPacks.BeginUpdate();
+            listViewPacks.Items.Clear();
+            foreach (var status in packService.GetPackStatuses(textBoxDaniPath.Text))
+            {
+                var item = new ListViewItem(status.Manifest.name);
+                item.Tag = status.FileName; // 削除時にパックファイル名を特定するために保持する
+                item.SubItems.Add(DescribeTargetDans(status.Manifest));
+                item.SubItems.Add($"解禁 {status.UnlockedRuleCount}/{status.RuleCount}");
+                listViewPacks.Items.Add(item);
+            }
+            listViewPacks.EndUpdate();
+        }
+
+        // 一覧の「対象段位」列の表示文字列を作る。段位が多いときは「n段位」とまとめる。
+        private static string DescribeTargetDans(PackManifest manifest)
+        {
+            if (manifest.rules == null || manifest.rules.Count == 0) return "";
+
+            var displays = manifest.rules
+                .Select(r => string.IsNullOrEmpty(r.target_dan_display) ? r.target_rank_folder : r.target_dan_display)
+                .ToList();
+
+            if (displays.Count > 3)
+            {
+                return $"{displays.Count}段位";
+            }
+            return string.Join("、", displays);
         }
 
         // ListBoxにログを表示する処理（どのスレッドから呼んでも安全）

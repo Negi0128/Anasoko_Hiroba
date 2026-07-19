@@ -1,3 +1,5 @@
 <Solution>
+  <!-- PackMaker（C#）は Dani Generator へのパック作成統合により引退。
+       Shared/AnasPack の v2 API 削除でビルド不可のためソリューションから除外（ファイルは参照用に残置）。 -->
   <Project Path="Anasoko_Hiroba/Anasoko_Hiroba.csproj" Id="bad0985b-37ee-4320-8d4b-932b22195dff" />
 </Solution>

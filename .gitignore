@@ -15,3 +15,6 @@ packages/
 
 # Secrets - use App.config.example as a template
 App.config
+
+# Game-derived binary, place manually next to the repo root
+AnasCore.dll

@@ -60,6 +60,21 @@ namespace Anasoko_Hiroba.Properties
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string DaniFolderPath
+        {
+            get
+            {
+                return ((string)(this["DaniFolderPath"]));
+            }
+            set
+            {
+                this["DaniFolderPath"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string ScoresFolderPath
         {
             get
@@ -159,6 +174,21 @@ namespace Anasoko_Hiroba.Properties
             set
             {
                 this["ExcludedCategoryFolders"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string RewardDestFolderPath
+        {
+            get
+            {
+                return ((string)(this["RewardDestFolderPath"]));
+            }
+            set
+            {
+                this["RewardDestFolderPath"] = value;
             }
         }
     }
